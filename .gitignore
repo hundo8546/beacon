@@ -1,0 +1,54 @@
+# Secrets and local credentials
+signalpilotv0/credentials.md
+credentials.md
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Broker/session tokens
+.robinhood_tokens/
+**/.robinhood_tokens/
+*.pickle
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+# Runtime outputs
+*.log
+signals_log.csv
+factor_ic_log.csv
+signalpilotv0/signals_log.csv
+signalpilotv0/factor_ic_log.csv
+
+# Node/Vite
+/package.json
+/package-lock.json
+node_modules/
+SignalPilot/node_modules/
+dist/
+SignalPilot/dist/
+.vite/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Firebase local state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
