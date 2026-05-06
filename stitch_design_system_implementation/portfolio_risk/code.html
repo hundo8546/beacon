@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SignalPilot | Portfolio Risk Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#7c839b",
+                    "tertiary": "#000000",
+                    "tertiary-fixed-dim": "#dec29a",
+                    "primary": "#000000",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#fcf8fa",
+                    "surface-container-high": "#eae7e9",
+                    "surface-tint": "#565e74",
+                    "on-tertiary": "#ffffff",
+                    "accent-green": "#10B981",
+                    "surface-container-low": "#f6f3f5",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "secondary-container": "#d5e3fd",
+                    "on-surface-variant": "#45464d",
+                    "tertiary-container": "#271901",
+                    "accent-blue": "#2563EB",
+                    "background-main": "#F8FAFC",
+                    "inverse-on-surface": "#f3f0f2",
+                    "inverse-primary": "#bec6e0",
+                    "surface-variant": "#e4e2e4",
+                    "on-secondary-container": "#57657b",
+                    "surface": "#fcf8fa",
+                    "primary-fixed": "#dae2fd",
+                    "on-surface": "#1b1b1d",
+                    "accent-slate": "#64748B",
+                    "surface-container": "#f0edef",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-background": "#1b1b1d",
+                    "surface-container-highest": "#e4e2e4",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "outline": "#76777d",
+                    "status-positive": "#059669",
+                    "on-tertiary-container": "#98805d",
+                    "surface-card": "#FFFFFF",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "border-subtle": "#E2E8F0",
+                    "secondary-fixed": "#d5e3fd",
+                    "outline-variant": "#c6c6cd",
+                    "primary-container": "#131b2e",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "status-warning": "#D97706",
+                    "secondary": "#515f74",
+                    "inverse-surface": "#303032",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-dim": "#dcd9db",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-tertiary-fixed": "#271901",
+                    "tertiary-fixed": "#fcdeb5",
+                    "status-danger": "#DC2626",
+                    "error-container": "#ffdad6",
+                    "background": "#fcf8fa",
+                    "on-tertiary-fixed-variant": "#574425",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "gutter": "20px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "unit": "4px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "h3": ["manrope"],
+                    "h1": ["manrope"],
+                    "body-lg": ["inter"],
+                    "body-md": ["inter"],
+                    "label-caps": ["inter"],
+                    "data-mono": ["monospace"],
+                    "h2": ["manrope"],
+                    "body-sm": ["inter"]
+            },
+            "fontSize": {
+                    "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+        }
+        .chart-gradient-green {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0) 100%);
+        }
+    </style>
+</head>
+<body class="bg-background-main font-body-md text-on-surface antialiased">
+<!-- TopNavBar -->
+<nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-6 h-16 max-w-[1440px] mx-auto">
+<div class="flex items-center space-x-8">
+<span class="text-xl font-extrabold text-slate-900 tracking-tighter font-h1">SignalPilot</span>
+<div class="hidden md:flex space-x-6 items-center h-full pt-1">
+<a class="text-slate-500 font-['Manrope'] text-sm font-medium tracking-tight hover:text-slate-900 pb-5 transition-all duration-200" href="#">Dashboard</a>
+<a class="text-blue-600 border-b-2 border-blue-600 font-['Manrope'] text-sm font-medium tracking-tight pb-5" href="#">Portfolio</a>
+<a class="text-slate-500 font-['Manrope'] text-sm font-medium tracking-tight hover:text-slate-900 pb-5 transition-all duration-200" href="#">Strategy</a>
+<a class="text-slate-500 font-['Manrope'] text-sm font-medium tracking-tight hover:text-slate-900 pb-5 transition-all duration-200" href="#">Alpha Explorer</a>
+<a class="text-slate-500 font-['Manrope'] text-sm font-medium tracking-tight hover:text-slate-900 pb-5 transition-all duration-200" href="#">Backtester</a>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-slate-500 hover:bg-slate-50 transition-all rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 transition-all rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="User profile avatar" class="w-8 h-8 rounded-full border border-slate-200" data-alt="A professional headshot of a middle-aged male executive in a well-lit corporate studio setting. He is wearing a dark navy blazer and a crisp white shirt, looking directly at the camera with a confident yet approachable expression. The background is a clean, out-of-focus modern office environment with soft morning light filtering through high windows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmzvoQ__83RKKSqxmpdmsvPkpFRxwvGt9zQ6Ia7__anpB6ElnDM0Re1tRsP-2XppezKvHRNuI1T9DU9SNwNAavweXD0ty4z0c0xvDhWedikDX34fdzOmf46yEu31m0CQ7e0mM6timdcHKyt4VT32O689dqc1DBURFMLaBGPAQn2l28kzVQfXFf0V2W55vRKON37_chPoSozQTzSlVHVEnFxq30S7eZ7_0sAbR5Wh9RMMbwV8X4gcd6-Fg1jSnF1L6gUkcTbz_X5fk8"/>
+</div>
+</div>
+</nav>
+<div class="flex max-w-[1440px] mx-auto min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col p-4 space-y-2 h-[calc(100vh-64px)] w-64 border-r border-slate-200 bg-slate-50 sticky top-16">
+<div class="mb-6 px-2 py-4">
+<h3 class="text-lg font-black text-slate-900 font-h2">SignalPilot</h3>
+<p class="text-xs font-semibold text-slate-500 font-label-caps mt-1">PRIVATE WEALTH DASHBOARD</p>
+</div>
+<div class="space-y-1">
+<a class="flex items-center space-x-3 px-3 py-2 text-slate-500 hover:bg-slate-100 hover:translate-x-1 transition-all rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 bg-white text-blue-600 shadow-sm border border-slate-200 rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">pie_chart</span>
+<span>Portfolio</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-slate-500 hover:bg-slate-100 hover:translate-x-1 transition-all rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">insights</span>
+<span>Strategy</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-slate-500 hover:bg-slate-100 hover:translate-x-1 transition-all rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">explore</span>
+<span>Alpha Explorer</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-slate-500 hover:bg-slate-100 hover:translate-x-1 transition-all rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">history</span>
+<span>Backtester</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-slate-500 hover:bg-slate-100 hover:translate-x-1 transition-all rounded-lg font-['Manrope'] text-sm font-semibold">
+<span class="material-symbols-outlined">psychology</span>
+<span>Sentiment</span>
+</a>
+</div>
+<div class="mt-auto p-4 bg-primary-container rounded-xl">
+<p class="text-white text-sm font-bold mb-2">Portfolio Protection</p>
+<p class="text-on-primary-container text-xs mb-4">Risk levels are currently within your target variance.</p>
+<button class="w-full bg-accent-blue text-white py-2 rounded-lg text-sm font-bold hover:opacity-90 transition-all">Connect Broker</button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-6 lg:p-10 space-y-8 overflow-x-hidden pb-24">
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="font-h1 text-h1 text-slate-900">Portfolio Risk Analysis</h1>
+<p class="font-body-lg text-slate-500 mt-1">Controlled confidence through data-driven diversification.</p>
+</div>
+<div class="flex space-x-2">
+<button class="bg-white border border-border-subtle px-4 py-2 rounded-lg flex items-center space-x-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Export Report</span>
+</button>
+<button class="bg-primary-container text-white px-4 py-2 rounded-lg flex items-center space-x-2 text-sm font-semibold hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-sm">rebase_edit</span>
+<span>Rebalance</span>
+</button>
+</div>
+</header>
+<!-- Risk Insights Bento Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Position Size Chart -->
+<div class="col-span-12 lg:col-span-4 bg-white rounded-xl border border-border-subtle p-6 flex flex-col h-full">
+<h3 class="font-h3 text-h3 text-slate-900 mb-4 flex items-center">
+                        Position Concentration
+                        <span class="material-symbols-outlined text-slate-400 ml-2 text-lg">info</span>
+</h3>
+<div class="flex-1 flex items-center justify-center py-6">
+<div class="relative w-48 h-48 rounded-full border-[16px] border-slate-100 flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border-[16px] border-accent-blue border-t-transparent border-l-transparent rotate-45"></div>
+<div class="absolute inset-0 rounded-full border-[16px] border-accent-green border-b-transparent border-r-transparent -rotate-12"></div>
+<div class="text-center">
+<span class="block text-2xl font-bold text-slate-900">42%</span>
+<span class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Top 3 Stocks</span>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-50">
+<p class="font-body-sm text-slate-600 italic">Portfolio remains diversified despite high conviction in your top technology holdings.</p>
+</div>
+</div>
+<!-- Sector Exposure Bar Chart -->
+<div class="col-span-12 lg:col-span-8 bg-white rounded-xl border border-border-subtle p-6 flex flex-col h-full">
+<h3 class="font-h3 text-h3 text-slate-900 mb-4">Sector Exposure</h3>
+<div class="flex-1 flex flex-col justify-center space-y-4">
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+<span>Technology</span>
+<span>38%</span>
+</div>
+<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-accent-blue h-full w-[38%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+<span>Healthcare</span>
+<span>22%</span>
+</div>
+<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[22%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+<span>Financials</span>
+<span>15%</span>
+</div>
+<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-slate-400 h-full w-[15%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+<span>Consumer Staples</span>
+<span>12%</span>
+</div>
+<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-accent-green h-full w-[12%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+<span>Other</span>
+<span>13%</span>
+</div>
+<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+<div class="bg-slate-200 h-full w-[13%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-50">
+<p class="font-body-sm text-slate-600 italic">Technology exposure exceeds benchmarks by 8%, suggesting a growth-oriented risk profile.</p>
+</div>
+</div>
+<!-- Unrealized Gain Chart -->
+<div class="col-span-12 lg:col-span-6 bg-white rounded-xl border border-border-subtle p-6 h-full flex flex-col">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-h3 text-h3 text-slate-900">Unrealized Gains</h3>
+<p class="text-accent-green font-bold text-lg">+$14,280.45 <span class="text-sm font-medium ml-1">(+12.4%)</span></p>
+</div>
+<span class="bg-accent-green/10 text-accent-green px-2 py-1 rounded-full text-[10px] font-bold uppercase">Optimal</span>
+</div>
+<div class="flex-1 relative min-h-[160px]">
+<!-- SVG Line Chart Mockup -->
+<svg class="w-full h-full" viewbox="0 0 400 160">
+<path d="M0 140 Q 50 130, 100 100 T 200 80 T 300 40 T 400 20" fill="none" stroke="#10B981" stroke-width="3"></path>
+<path d="M0 140 Q 50 130, 100 100 T 200 80 T 300 40 T 400 20 V 160 H 0 Z" fill="url(#green-grad)"></path>
+<defs>
+<lineargradient id="green-grad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10B981" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#10B981" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-50">
+<p class="font-body-sm text-slate-600 italic">Capital appreciation is largely driven by mid-term positions held over 180 days.</p>
+</div>
+</div>
+<!-- Correlation Heatmap -->
+<div class="col-span-12 lg:col-span-6 bg-white rounded-xl border border-border-subtle p-6 h-full flex flex-col">
+<h3 class="font-h3 text-h3 text-slate-900 mb-4">Correlation Heatmap</h3>
+<div class="flex-1 flex flex-col">
+<div class="grid grid-cols-6 gap-1 flex-1">
+<!-- Empty corner -->
+<div class=""></div>
+<div class="text-[10px] font-bold text-slate-400 text-center uppercase">AAPL</div>
+<div class="text-[10px] font-bold text-slate-400 text-center uppercase">MSFT</div>
+<div class="text-[10px] font-bold text-slate-400 text-center uppercase">GOOG</div>
+<div class="text-[10px] font-bold text-slate-400 text-center uppercase">TSLA</div>
+<div class="text-[10px] font-bold text-slate-400 text-center uppercase">V</div>
+<div class="text-[10px] font-bold text-slate-400 text-right uppercase py-2">AAPL</div>
+<div class="bg-blue-600 rounded-sm"></div>
+<div class="bg-blue-400 rounded-sm"></div>
+<div class="bg-blue-200 rounded-sm"></div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="bg-slate-50 rounded-sm"></div>
+<div class="text-[10px] font-bold text-slate-400 text-right uppercase py-2">MSFT</div>
+<div class="bg-blue-400 rounded-sm"></div>
+<div class="bg-blue-600 rounded-sm"></div>
+<div class="bg-blue-300 rounded-sm"></div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="bg-slate-50 rounded-sm"></div>
+<div class="text-[10px] font-bold text-slate-400 text-right uppercase py-2">GOOG</div>
+<div class="bg-blue-200 rounded-sm"></div>
+<div class="bg-blue-300 rounded-sm"></div>
+<div class="bg-blue-600 rounded-sm"></div>
+<div class="bg-slate-200 rounded-sm"></div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="text-[10px] font-bold text-slate-400 text-right uppercase py-2">TSLA</div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="bg-slate-200 rounded-sm"></div>
+<div class="bg-blue-600 rounded-sm"></div>
+<div class="bg-slate-200 rounded-sm"></div>
+<div class="text-[10px] font-bold text-slate-400 text-right uppercase py-2">V</div>
+<div class="bg-slate-50 rounded-sm"></div>
+<div class="bg-slate-50 rounded-sm"></div>
+<div class="bg-slate-100 rounded-sm"></div>
+<div class="bg-slate-200 rounded-sm"></div>
+<div class="bg-blue-600 rounded-sm"></div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-50">
+<p class="font-body-sm text-slate-600 italic">High correlation observed between AAPL and MSFT; consider balancing with defensive assets.</p>
+</div>
+</div>
+</div>
+<!-- Holdings Table Section -->
+<section class="bg-white rounded-xl border border-border-subtle overflow-hidden">
+<div class="p-6 border-b border-slate-100 flex justify-between items-center">
+<h3 class="font-h3 text-h3 text-slate-900">Current Risk Scores by Asset</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Search holdings..." type="text"/>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-50">
+<tr>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Ticker</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Company</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Size (%)</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Value</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Risk Score</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-slate-50 transition-all">
+<td class="px-6 py-4 font-bold text-slate-900 font-data-mono">AAPL</td>
+<td class="px-6 py-4 text-sm text-slate-600">Apple Inc.</td>
+<td class="px-6 py-4 text-sm text-slate-900">18.4%</td>
+<td class="px-6 py-4 text-sm text-slate-900">$42,390.12</td>
+<td class="px-6 py-4">
+<div class="flex items-center space-x-2">
+<div class="w-16 bg-slate-100 h-1.5 rounded-full">
+<div class="bg-accent-blue h-full w-[45%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-600">4.5/10</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-accent-green/10 text-accent-green px-2 py-1 rounded text-[10px] font-bold uppercase">Stable</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-all">
+<td class="px-6 py-4 font-bold text-slate-900 font-data-mono">TSLA</td>
+<td class="px-6 py-4 text-sm text-slate-600">Tesla, Inc.</td>
+<td class="px-6 py-4 text-sm text-slate-900">12.1%</td>
+<td class="px-6 py-4 text-sm text-slate-900">$27,845.00</td>
+<td class="px-6 py-4">
+<div class="flex items-center space-x-2">
+<div class="w-16 bg-slate-100 h-1.5 rounded-full">
+<div class="bg-status-danger h-full w-[88%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-600">8.8/10</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-status-warning/10 text-status-warning px-2 py-1 rounded text-[10px] font-bold uppercase">Volatile</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-all">
+<td class="px-6 py-4 font-bold text-slate-900 font-data-mono">MSFT</td>
+<td class="px-6 py-4 text-sm text-slate-600">Microsoft Corp</td>
+<td class="px-6 py-4 text-sm text-slate-900">11.5%</td>
+<td class="px-6 py-4 text-sm text-slate-900">$26,450.12</td>
+<td class="px-6 py-4">
+<div class="flex items-center space-x-2">
+<div class="w-16 bg-slate-100 h-1.5 rounded-full">
+<div class="bg-accent-blue h-full w-[32%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-600">3.2/10</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-accent-green/10 text-accent-green px-2 py-1 rounded text-[10px] font-bold uppercase">Stable</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-all">
+<td class="px-6 py-4 font-bold text-slate-900 font-data-mono">JNJ</td>
+<td class="px-6 py-4 text-sm text-slate-600">Johnson &amp; Johnson</td>
+<td class="px-6 py-4 text-sm text-slate-900">9.2%</td>
+<td class="px-6 py-4 text-sm text-slate-900">$21,160.88</td>
+<td class="px-6 py-4">
+<div class="flex items-center space-x-2">
+<div class="w-16 bg-slate-100 h-1.5 rounded-full">
+<div class="bg-accent-blue h-full w-[15%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-600">1.5/10</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-accent-green/10 text-accent-green px-2 py-1 rounded text-[10px] font-bold uppercase">Hedge</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+<!-- BottomNavBar -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md flex justify-around items-center px-4 py-3 pb-safe z-50 border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-blue-600 scale-110" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pie_chart</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Portfolio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">trending_up</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Strategy</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Alpha</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="#">
+<span class="material-symbols-outlined">menu</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">More</span>
+</a>
+</nav>
+</body></html>

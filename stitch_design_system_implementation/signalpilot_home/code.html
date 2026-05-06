@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SignalPilot | Private Wealth Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#7c839b",
+                        "tertiary": "#000000",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "primary": "#000000",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#fcf8fa",
+                        "surface-container-high": "#eae7e9",
+                        "surface-tint": "#565e74",
+                        "on-tertiary": "#ffffff",
+                        "accent-green": "#10B981",
+                        "surface-container-low": "#f6f3f5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#d5e3fd",
+                        "on-surface-variant": "#45464d",
+                        "tertiary-container": "#271901",
+                        "accent-blue": "#2563EB",
+                        "background-main": "#F8FAFC",
+                        "inverse-on-surface": "#f3f0f2",
+                        "inverse-primary": "#bec6e0",
+                        "surface-variant": "#e4e2e4",
+                        "on-secondary-container": "#57657b",
+                        "surface": "#fcf8fa",
+                        "primary-fixed": "#dae2fd",
+                        "on-surface": "#1b1b1d",
+                        "accent-slate": "#64748B",
+                        "surface-container": "#f0edef",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-background": "#1b1b1d",
+                        "surface-container-highest": "#e4e2e4",
+                        "on-secondary-fixed-variant": "#3a485c",
+                        "outline": "#76777d",
+                        "status-positive": "#059669",
+                        "on-tertiary-container": "#98805d",
+                        "surface-card": "#FFFFFF",
+                        "on-secondary-fixed": "#0d1c2f",
+                        "border-subtle": "#E2E8F0",
+                        "secondary-fixed": "#d5e3fd",
+                        "outline-variant": "#c6c6cd",
+                        "primary-container": "#131b2e",
+                        "secondary-fixed-dim": "#b9c7e0",
+                        "status-warning": "#D97706",
+                        "secondary": "#515f74",
+                        "inverse-surface": "#303032",
+                        "on-primary-fixed": "#131b2e",
+                        "surface-dim": "#dcd9db",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "on-tertiary-fixed": "#271901",
+                        "tertiary-fixed": "#fcdeb5",
+                        "status-danger": "#DC2626",
+                        "error-container": "#ffdad6",
+                        "background": "#fcf8fa",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "h3": ["manrope"],
+                        "h1": ["manrope"],
+                        "body-lg": ["inter"],
+                        "body-md": ["inter"],
+                        "label-caps": ["inter"],
+                        "data-mono": ["monospace"],
+                        "h2": ["manrope"],
+                        "body-sm": ["inter"]
+                    },
+                    "fontSize": {
+                        "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.05), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(81, 95, 116, 0.03), transparent 40%);
+        }
+    </style>
+</head>
+<body class="bg-background-main text-on-surface selection:bg-accent-blue/20">
+<!-- Top Navigation Bar -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+<nav class="flex justify-between items-center w-full px-6 h-16 max-w-[1440px] mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-extrabold text-slate-900 tracking-tighter font-h1">SignalPilot</span>
+<div class="hidden md:flex gap-6">
+<a class="text-slate-500 font-body-md hover:text-slate-900 transition-colors" href="#">Platform</a>
+<a class="text-slate-500 font-body-md hover:text-slate-900 transition-colors" href="#">Solutions</a>
+<a class="text-slate-500 font-body-md hover:text-slate-900 transition-colors" href="#">Pricing</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-4 py-2 text-slate-600 font-body-md hover:text-slate-900 transition-colors">Sign In</button>
+<button class="bg-primary-container text-white px-5 py-2.5 rounded-lg font-h3 text-sm hover:bg-slate-800 transition-all">Get Started</button>
+</div>
+</nav>
+</header>
+<main class="min-h-screen hero-gradient">
+<!-- Hero Section -->
+<section class="max-w-[1280px] mx-auto px-6 py-20 lg:py-32 flex flex-col items-center text-center">
+<div class="inline-flex items-center gap-2 bg-secondary-container/50 px-3 py-1 rounded-full border border-secondary-container mb-8">
+<span class="w-2 h-2 rounded-full bg-accent-blue animate-pulse"></span>
+<span class="text-on-secondary-container font-label-caps uppercase">New: Interactive Backtester v2.0</span>
+</div>
+<h1 class="font-h1 text-4xl md:text-6xl max-w-4xl mb-6 text-slate-900">
+                Turn connected brokerage data into <span class="text-accent-blue">clear actions.</span>
+</h1>
+<p class="font-body-lg text-on-primary-container max-w-2xl mb-10 text-lg">
+                SignalPilot aggregates your private wealth data into a single, professional dashboard, removing the noise of modern trading and replacing it with disciplined, signal-based insights.
+            </p>
+<div class="flex flex-col sm:flex-row gap-4 mb-20">
+<button class="bg-primary-container text-white px-8 py-4 rounded-xl font-h2 text-base hover:shadow-lg hover:shadow-primary-container/20 transition-all flex items-center gap-2">
+                    Start Your Pilot
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+<button class="bg-white border border-border-subtle text-slate-700 px-8 py-4 rounded-xl font-h2 text-base hover:bg-slate-50 transition-all">
+                    View Demo
+                </button>
+</div>
+<!-- Dashboard Preview -->
+<div class="w-full max-w-5xl relative">
+<div class="absolute -top-10 -left-10 w-40 h-40 bg-accent-blue/10 blur-3xl rounded-full -z-10"></div>
+<div class="absolute -bottom-10 -right-10 w-60 h-60 bg-accent-slate/10 blur-3xl rounded-full -z-10"></div>
+<div class="bg-white rounded-2xl shadow-2xl border border-border-subtle p-3 lg:p-4 overflow-hidden">
+<div class="bg-slate-50 rounded-xl border border-slate-100 aspect-video flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A sophisticated financial dashboard interface displayed on a sleek high-resolution monitor. The screen shows minimalist navy blue and slate grey line charts representing market trends, with clear call-to-action cards on the sidebar. The aesthetic is clean and professional, using a soft white light mode palette with deep blue accents. The environment is a bright, modern minimalist office space with soft ambient lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg6MLadlPufNtjt_iT9CrZ1PbOSU8aj5zlHEZpi7rzPUlQK3csJETBavji_kQNydtsWVtozEcSoOW3e9w61dn-isqy_PoP9q7gUjp2ibvzk51FcR8bz3hSieRjI_JIgqczkDw60D3YJeLuDQV0gEoJHAj-x4k8A7JHOZ7BXJRveZDNn5OAbbbVvEZ0A93jNE3TKwBuFb1-H9XZXpun2suNk42PTsPZPDkRrjOMzXce_djEa8g3aYdgYNkOVvSzAP7iApaDA1JeEBFY"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid Features Section -->
+<section class="max-w-[1280px] mx-auto px-6 py-24 border-t border-border-subtle">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Feature 1: Large Bento -->
+<div class="md:col-span-8 bg-white p-8 rounded-2xl border border-border-subtle flex flex-col justify-between group hover:border-accent-blue/30 transition-all">
+<div>
+<div class="w-12 h-12 bg-accent-blue/10 text-accent-blue rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<h3 class="font-h2 text-slate-900 mb-3">Portfolio Signal Engine</h3>
+<p class="font-body-md text-on-primary-container max-w-md">Our proprietary logic scans your entire portfolio daily to highlight risk concentrations and growth opportunities that standard broker apps miss.</p>
+</div>
+<div class="mt-12 flex gap-4">
+<div class="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-accent-blue w-2/3"></div>
+</div>
+<div class="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-accent-green w-1/2"></div>
+</div>
+</div>
+</div>
+<!-- Feature 2: Small Bento -->
+<div class="md:col-span-4 bg-slate-900 text-white p-8 rounded-2xl flex flex-col justify-between">
+<div class="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined">security</span>
+</div>
+<div>
+<h3 class="font-h3 text-white mb-2">Bank-Grade Security</h3>
+<p class="font-body-sm text-slate-400">Read-only access ensures your funds are never at risk. We only see the data; we never hold the keys.</p>
+</div>
+</div>
+<!-- Feature 3: Small Bento -->
+<div class="md:col-span-4 bg-white p-8 rounded-2xl border border-border-subtle flex flex-col justify-center items-center text-center">
+<div class="w-16 h-16 mb-4 bg-slate-50 rounded-full flex items-center justify-center border border-border-subtle">
+<span class="material-symbols-outlined text-accent-blue text-3xl">sync</span>
+</div>
+<h3 class="font-h3 text-slate-900 mb-1">Universal Sync</h3>
+<p class="font-body-sm text-on-primary-container">Connect 100+ brokerages instantly through our secure gateway.</p>
+</div>
+<!-- Feature 4: Medium Bento -->
+<div class="md:col-span-8 bg-surface-container-low p-8 rounded-2xl border border-border-subtle flex flex-col md:flex-row gap-8 items-center">
+<div class="flex-1">
+<h3 class="font-h2 text-slate-900 mb-3">Plain English Reports</h3>
+<p class="font-body-md text-on-primary-container">Stop deciphering complex Greek letters. SignalPilot translates volatility and beta into actionable sentences you can actually use.</p>
+</div>
+<div class="w-full md:w-1/3 bg-white p-4 rounded-xl shadow-sm border border-border-subtle">
+<div class="flex items-center gap-2 mb-3">
+<span class="w-2 h-2 rounded-full bg-accent-green"></span>
+<span class="font-label-caps text-[10px]">OPTIMAL RISK</span>
+</div>
+<div class="h-1 bg-slate-100 w-full rounded-full mb-1"></div>
+<div class="h-1 bg-slate-100 w-3/4 rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Trust Section -->
+<section class="max-w-[1280px] mx-auto px-6 py-20 text-center">
+<h2 class="font-label-caps text-slate-400 mb-12 tracking-[0.2em]">INTEGRATED WITH GLOBAL LEADERS</h2>
+<div class="flex flex-wrap justify-center items-center gap-x-16 gap-y-10 grayscale opacity-40">
+<span class="font-h1 text-2xl tracking-tighter text-slate-900">Vanguard</span>
+<span class="font-h1 text-2xl tracking-tighter text-slate-900">Schwab</span>
+<span class="font-h1 text-2xl tracking-tighter text-slate-900">Interactive</span>
+<span class="font-h1 text-2xl tracking-tighter text-slate-900">Fidelity</span>
+<span class="font-h1 text-2xl tracking-tighter text-slate-900">Robinhood</span>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="max-w-[1280px] mx-auto px-6 py-20">
+<div class="bg-primary-container rounded-[2rem] p-12 lg:p-24 text-center text-white relative overflow-hidden">
+<div class="absolute top-0 right-0 w-96 h-96 bg-accent-blue/20 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
+<div class="relative z-10">
+<h2 class="font-h1 text-3xl md:text-5xl mb-6">Ready to pilot your wealth?</h2>
+<p class="font-body-lg text-slate-300 max-w-xl mx-auto mb-10">
+                        Join over 45,000 retail investors who have traded uncertainty for data-driven signals.
+                    </p>
+<div class="flex flex-col sm:flex-row justify-center gap-4">
+<button class="bg-white text-primary-container px-10 py-4 rounded-xl font-h2 text-base hover:bg-slate-100 transition-all">Get Started Free</button>
+<button class="bg-transparent border border-white/20 text-white px-10 py-4 rounded-xl font-h2 text-base hover:bg-white/10 transition-all">Talk to Sales</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Simple Footer -->
+<footer class="bg-white border-t border-border-subtle py-12">
+<div class="max-w-[1280px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col gap-2 items-center md:items-start">
+<span class="text-xl font-extrabold text-slate-900 tracking-tighter font-h1">SignalPilot</span>
+<p class="font-body-sm text-slate-500">© 2024 SignalPilot Wealth Management AI.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-body-sm text-slate-500 hover:text-slate-900" href="#">Privacy</a>
+<a class="font-body-sm text-slate-500 hover:text-slate-900" href="#">Terms</a>
+<a class="font-body-sm text-slate-500 hover:text-slate-900" href="#">Security</a>
+<a class="font-body-sm text-slate-500 hover:text-slate-900" href="#">Help Center</a>
+</div>
+</div>
+</footer>
+</body></html>

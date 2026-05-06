@@ -293,6 +293,360 @@ def get_manual_portfolio(credentials: dict[str, str]) -> list[Holding]:
     return holdings
 
 
+HOLDINGS_FILE_FORMATS = {
+    "robinhood": {
+        "ticker": ["Symbol"],
+        "quantity": ["Quantity"],
+        "avg_cost": ["Average Cost", "Average Cost Per Share"],
+        "price": ["Price", "Current Price", "Last Price"],
+        "market_value": ["Equity", "Market Value"],
+    },
+    "fidelity": {
+        "ticker": ["Symbol"],
+        "quantity": ["Quantity"],
+        "avg_cost": ["Cost Basis Per Share", "Average Cost Basis"],
+        "price": ["Last Price", "Current Price"],
+        "market_value": ["Current Value", "Market Value"],
+    },
+    "schwab": {
+        "ticker": ["Symbol"],
+        "quantity": ["Quantity"],
+        "avg_cost": ["Price Paid", "Cost Per Share"],
+        "price": ["Price", "Market Price"],
+        "market_value": ["Market Value"],
+    },
+    "etrade": {
+        "ticker": ["Symbol"],
+        "quantity": ["Qty", "Quantity"],
+        "avg_cost": ["Avg Cost/Share", "Average Cost"],
+        "price": ["Last Price", "Current Price"],
+        "market_value": ["Market Value"],
+    },
+    "webull": {
+        "ticker": ["Ticker"],
+        "quantity": ["Total Qty", "Quantity"],
+        "avg_cost": ["Avg Cost", "Average Cost"],
+        "price": ["Current Price", "Last Price"],
+        "market_value": ["Market Value"],
+    },
+    "ibkr": {
+        "ticker": ["Financial Instrument", "Symbol"],
+        "quantity": ["Quantity"],
+        "avg_cost": ["Average Price", "Cost Basis Price"],
+        "price": ["Close Price", "Market Price"],
+        "market_value": ["Value", "Market Value"],
+    },
+    "generic": {
+        "ticker": ["Ticker", "Symbol"],
+        "quantity": ["Shares", "Quantity", "Qty"],
+        "avg_cost": ["Average Cost", "Avg Cost", "Cost Basis Per Share", "Avg Cost/Share"],
+        "price": ["Current Price", "Price", "Last Price"],
+        "market_value": ["Market Value", "Value", "Current Value"],
+    },
+}
+
+
+def normalize_holdings_file(path: str | Path, broker_hint: str | None = None, credentials: dict[str, str] | None = None) -> dict[str, Any]:
+    file_path = Path(path)
+    suffix = file_path.suffix.lower()
+    try:
+        if suffix == ".csv":
+            frame = pd.read_csv(file_path)
+            result = normalize_holdings_frame(frame, broker_hint)
+            result["parser"] = "column-map"
+            return result
+        if suffix == ".xlsx":
+            frame = pd.read_excel(file_path)
+            result = normalize_holdings_frame(frame, broker_hint)
+            result["parser"] = "column-map"
+            return result
+        if suffix == ".pdf":
+            text = extract_pdf_text(file_path)
+            return normalize_holdings_text_with_openai(text, credentials or {}, broker_hint, source_name=file_path.name)
+        raise ValueError("Upload a CSV, XLSX, or PDF holdings file.")
+    except Exception as exc:
+        if suffix not in {".csv", ".xlsx", ".pdf"}:
+            raise
+        sample = holdings_file_sample(file_path, suffix)
+        if not sample.strip():
+            raise ValueError(f"{exc} The file did not contain readable holdings text.") from exc
+        try:
+            return normalize_holdings_text_with_openai(
+                sample,
+                credentials or {},
+                broker_hint,
+                source_name=file_path.name,
+                prior_error=str(exc),
+            )
+        except Exception as fallback_exc:
+            raise ValueError(f"{exc} OpenAI fallback also failed: {fallback_exc}") from fallback_exc
+
+
+def normalize_holdings_frame(frame: pd.DataFrame, broker_hint: str | None = None) -> dict[str, Any]:
+    frame = frame.dropna(how="all")
+    if frame.empty:
+        raise ValueError("The uploaded holdings file is empty.")
+
+    frame.columns = [str(column).strip() for column in frame.columns]
+    broker = detect_holdings_broker(frame.columns, broker_hint)
+    mapping = resolve_holdings_columns(frame.columns, broker)
+    holdings: list[Holding] = []
+    preview: list[dict[str, Any]] = []
+
+    for _, row in frame.iterrows():
+        ticker = clean_ticker(row.get(mapping["ticker"]))
+        quantity = parse_money_number(row.get(mapping["quantity"]))
+        avg_cost = parse_money_number(row.get(mapping["avg_cost"]))
+        if not ticker or quantity is None or avg_cost is None:
+            continue
+        price = parse_money_number(row.get(mapping.get("price"))) if mapping.get("price") else None
+        market_value = parse_money_number(row.get(mapping.get("market_value"))) if mapping.get("market_value") else None
+        if market_value is None and price is not None:
+            market_value = price * quantity
+        holdings.append(
+            Holding(
+                ticker=ticker,
+                quantity=quantity,
+                avg_cost=avg_cost,
+                price=price,
+                market_value=market_value,
+            )
+        )
+        preview.append(
+            {
+                "ticker": ticker,
+                "shares": quantity,
+                "avg_cost": avg_cost,
+                "current_price": price,
+                "market_value": market_value,
+            }
+        )
+
+    if not holdings:
+        raise ValueError("No holdings rows could be parsed. Check the file columns or choose a broker override.")
+
+    total_value = sum(holding.market_value or 0 for holding in holdings)
+    if total_value:
+        for holding in holdings:
+            holding.portfolio_weight = (holding.market_value or 0) / total_value
+
+    return {
+        "broker": broker,
+        "holdings": holdings,
+        "preview": preview,
+        "row_count": len(holdings),
+        "columns": list(frame.columns),
+    }
+
+
+def extract_pdf_text(path: Path) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise RuntimeError("Install pypdf to import PDF holdings statements.") from exc
+
+    reader = PdfReader(str(path))
+    pages = []
+    for page in reader.pages[:8]:
+        pages.append(page.extract_text() or "")
+    text = "\n".join(pages).strip()
+    if not text:
+        raise ValueError("The uploaded PDF did not contain selectable holdings text.")
+    return text[:18000]
+
+
+def holdings_file_sample(path: Path, suffix: str) -> str:
+    if suffix == ".pdf":
+        return extract_pdf_text(path)
+    try:
+        if suffix == ".csv":
+            frame = pd.read_csv(path, dtype=str, nrows=80)
+            return frame.to_csv(index=False)
+        if suffix == ".xlsx":
+            sheets = pd.read_excel(path, dtype=str, nrows=80, sheet_name=None)
+            chunks = []
+            for name, frame in list(sheets.items())[:4]:
+                chunks.append(f"Sheet: {name}\n{frame.to_csv(index=False)}")
+            return "\n\n".join(chunks)
+    except Exception as exc:
+        LOGGER.warning("Could not build holdings fallback sample path=%s error=%s", path, exc)
+    return ""
+
+
+def normalize_holdings_text_with_openai(
+    text: str,
+    credentials: dict[str, str],
+    broker_hint: str | None = None,
+    *,
+    source_name: str = "uploaded holdings",
+    prior_error: str = "",
+) -> dict[str, Any]:
+    api_key = credentials.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Set OPENAI_API_KEY in credentials.md to use the flexible holdings parser for irregular CSV, Excel, or PDF uploads.")
+
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError("Install openai to use the flexible holdings parser.") from exc
+
+    payload = {
+        "source_name": source_name,
+        "broker_hint": broker_hint or "",
+        "prior_parser_error": prior_error,
+        "sample": text[:18000],
+        "instructions": (
+            "Extract current portfolio holding rows from this brokerage export or statement. "
+            "Use only rows that contain a listed security ticker plus share quantity and cost basis or average cost. "
+            "Ignore cash, options, crypto, pending transactions, page footers, and totals unless they are clearly stock or ETF positions. "
+            "If current price or market value is missing, return null for that field. "
+            "Ticker must be a US-style ticker symbol, not a company name."
+        ),
+    }
+    client = OpenAI(api_key=api_key)
+    response = client.responses.create(
+        model=credentials.get("OPENAI_MODEL", "gpt-4o-mini"),
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict data extraction engine for portfolio holdings. "
+                    "Return JSON only. Do not invent missing positions or prices."
+                ),
+            },
+            {"role": "user", "content": json.dumps(payload, default=str)},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "holdings_extraction",
+                "strict": True,
+                "schema": HOLDINGS_EXTRACTION_SCHEMA,
+            }
+        },
+    )
+    result = json.loads(response.output_text)
+    holdings: list[Holding] = []
+    preview: list[dict[str, Any]] = []
+    for row in result.get("holdings", []):
+        ticker = clean_ticker(row.get("ticker"))
+        quantity = parse_money_number(row.get("shares"))
+        avg_cost = parse_money_number(row.get("avg_cost"))
+        if not ticker or quantity is None or avg_cost is None:
+            continue
+        price = parse_money_number(row.get("current_price"))
+        market_value = parse_money_number(row.get("market_value"))
+        if market_value is None and price is not None:
+            market_value = price * quantity
+        holding = Holding(ticker=ticker, quantity=quantity, avg_cost=avg_cost, price=price, market_value=market_value)
+        holdings.append(holding)
+        preview.append(
+            {
+                "ticker": ticker,
+                "shares": quantity,
+                "avg_cost": avg_cost,
+                "current_price": price,
+                "market_value": market_value,
+            }
+        )
+    if not holdings:
+        raise ValueError("OpenAI fallback did not find valid stock or ETF holdings rows.")
+
+    total_value = sum(holding.market_value or 0 for holding in holdings)
+    if total_value:
+        for holding in holdings:
+            holding.portfolio_weight = (holding.market_value or 0) / total_value
+
+    return {
+        "broker": normalize_broker_name(result.get("broker")) or normalize_broker_name(broker_hint) or "openai",
+        "holdings": holdings,
+        "preview": preview,
+        "row_count": len(holdings),
+        "columns": result.get("columns_used", []),
+        "parser": "openai-fallback",
+        "confidence": result.get("confidence"),
+        "warnings": result.get("warnings", []),
+    }
+
+
+def detect_holdings_broker(columns: list[str], broker_hint: str | None = None) -> str:
+    normalized = {normalize_column(column) for column in columns}
+    hint = normalize_broker_name(broker_hint)
+    if hint and hint in HOLDINGS_FILE_FORMATS:
+        return hint
+    best_name = "generic"
+    best_score = 0
+    for broker, mapping in HOLDINGS_FILE_FORMATS.items():
+        required = mapping["ticker"] + mapping["quantity"] + mapping["avg_cost"]
+        score = sum(1 for column in required if normalize_column(column) in normalized)
+        if score > best_score:
+            best_name = broker
+            best_score = score
+    return best_name
+
+
+def resolve_holdings_columns(columns: list[str], broker: str) -> dict[str, str]:
+    normalized_lookup = {normalize_column(column): column for column in columns}
+    mapping = HOLDINGS_FILE_FORMATS.get(broker, HOLDINGS_FILE_FORMATS["generic"])
+    resolved: dict[str, str] = {}
+    for field in ("ticker", "quantity", "avg_cost"):
+        column = first_matching_column(normalized_lookup, mapping[field], HOLDINGS_FILE_FORMATS["generic"].get(field, []))
+        if not column:
+            raise ValueError(f"Missing required holdings column for {field.replace('_', ' ')}.")
+        resolved[field] = column
+    for field in ("price", "market_value"):
+        column = first_matching_column(normalized_lookup, mapping.get(field, []), HOLDINGS_FILE_FORMATS["generic"].get(field, []))
+        if column:
+            resolved[field] = column
+    return resolved
+
+
+def first_matching_column(lookup: dict[str, str], *candidate_groups: list[str]) -> str | None:
+    for candidates in candidate_groups:
+        for candidate in candidates:
+            match = lookup.get(normalize_column(candidate))
+            if match:
+                return match
+    return None
+
+
+def normalize_column(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value).strip().lower())
+
+
+def normalize_broker_name(value: str | None) -> str | None:
+    if not value:
+        return None
+    clean = normalize_column(value)
+    aliases = {"etrade": "etrade", "e trade": "etrade", "interactivebrokers": "ibkr", "ibkr": "ibkr"}
+    return aliases.get(clean, clean)
+
+
+def clean_ticker(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    if not raw or raw in {"NAN", "NONE", "--"}:
+        return ""
+    match = re.search(r"[A-Z][A-Z0-9.\-]{0,9}", raw)
+    return match.group(0).replace("-", ".") if match else ""
+
+
+def parse_money_number(value: Any) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return number if math.isfinite(number) else None
+    text = str(value).strip()
+    if not text or text in {"--", "N/A", "n/a"}:
+        return None
+    negative = text.startswith("(") and text.endswith(")")
+    text = re.sub(r"[$,%+,]", "", text).strip("() ")
+    number = safe_float(text)
+    if number is None:
+        return None
+    return -number if negative else number
+
+
 def get_price_history(ticker: str, period: str = "1y") -> pd.DataFrame:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
     response = requests.get(
@@ -546,6 +900,33 @@ DYNAMIC_UNIVERSE_SCHEMA = {
     "additionalProperties": False,
 }
 
+HOLDINGS_EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "broker": {"type": "string"},
+        "confidence": {"type": "number"},
+        "columns_used": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "holdings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string"},
+                    "shares": {"type": "number"},
+                    "avg_cost": {"type": "number"},
+                    "current_price": {"type": ["number", "null"]},
+                    "market_value": {"type": ["number", "null"]},
+                },
+                "required": ["ticker", "shares", "avg_cost", "current_price", "market_value"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["broker", "confidence", "columns_used", "warnings", "holdings"],
+    "additionalProperties": False,
+}
+
 
 def llm_sentiment(ticker: str, headlines: list[str], credentials: dict[str, str]) -> dict[str, Any]:
     api_key = credentials.get("OPENAI_API_KEY")
@@ -739,14 +1120,17 @@ def build_dynamic_universe(
     holdings: list[Holding],
     credentials: dict[str, str],
     *,
+    holdings_report: list[dict[str, Any]] | None = None,
     extra_tickers: list[str] | None = None,
     limit: int = 12,
 ) -> dict[str, Any]:
     extra_tickers = [ticker.upper().strip() for ticker in (extra_tickers or []) if ticker.strip()]
     rss = discover_rss_tickers(limit=limit)
     owned = {holding.ticker.upper() for holding in holdings}
+    portfolio_candidates = portfolio_peer_candidates(holdings_report or [], limit=limit)
+    ai = openai_dynamic_universe(holdings, rss, credentials, limit=limit)
     tickers = []
-    for source in [rss.get("tickers", []), extra_tickers]:
+    for source in [ai.get("tickers", []), portfolio_candidates, extra_tickers, rss.get("tickers", [])]:
         for ticker in source:
             ticker = ticker.upper().strip()
             if ticker and ticker not in tickers and ticker not in owned:
@@ -755,10 +1139,46 @@ def build_dynamic_universe(
         tickers.append("SPY")
     return {
         "tickers": tickers[:limit],
+        "portfolio_candidates": portfolio_candidates,
         "rss": rss,
-        "llm_rationale": "",
-        "source": "Google News RSS + optional manual extras",
+        "llm_rationale": ai.get("rationale", ""),
+        "source": "portfolio peers + optional OpenAI + Google News RSS",
     }
+
+
+def portfolio_peer_candidates(holdings_report: list[dict[str, Any]], limit: int = 12) -> list[str]:
+    sector_peers = {
+        "Technology": ["MSFT", "AAPL", "NVDA", "AVGO", "AMD", "CRM"],
+        "Communication Services": ["GOOGL", "META", "NFLX", "TMUS"],
+        "Consumer Cyclical": ["AMZN", "TSLA", "HD", "NKE"],
+        "Consumer Defensive": ["COST", "WMT", "PG", "KO"],
+        "Financial Services": ["JPM", "V", "MA", "BRK.B"],
+        "Healthcare": ["LLY", "UNH", "JNJ", "ABBV"],
+        "Industrials": ["CAT", "GE", "HON", "UNP"],
+        "Energy": ["XOM", "CVX", "COP"],
+        "Utilities": ["NEE", "SO", "DUK"],
+        "Real Estate": ["PLD", "AMT", "O"],
+        "Basic Materials": ["LIN", "SHW", "FCX"],
+        "Unknown": ["SPY", "VTI", "QQQ", "VEA", "BND"],
+    }
+    owned = {str(row.get("ticker", "")).upper() for row in holdings_report}
+    sector_weights: dict[str, float] = {}
+    for row in holdings_report:
+        sector = str(row.get("sector") or "Unknown")
+        sector_weights[sector] = sector_weights.get(sector, 0) + float(row.get("portfolio_weight") or 0)
+    ranked_sectors = sorted(sector_weights, key=sector_weights.get, reverse=True) or ["Unknown"]
+    candidates: list[str] = []
+    for sector in ranked_sectors:
+        for ticker in sector_peers.get(sector, sector_peers["Unknown"]):
+            normalized = ticker.replace(".", "-")
+            if normalized not in owned and normalized not in candidates:
+                candidates.append(normalized)
+            if len(candidates) >= limit:
+                return candidates
+    for ticker in ["SPY", "VTI", "QQQ", "VEA", "BND"]:
+        if ticker not in owned and ticker not in candidates:
+            candidates.append(ticker)
+    return candidates[:limit]
 
 
 def simple_news_sentiment(titles: list[str]) -> float:
@@ -1312,10 +1732,22 @@ def strategy_monitor(holdings_report: list[dict[str, Any]]) -> dict[str, Any]:
     total_risk = sum(row["risk_weight"] for row in rows) or 1
     for row in rows:
         row["risk_attribution"] = row["risk_weight"] / total_risk
+    signal_rows = []
+    now = datetime.now(timezone.utc).astimezone().isoformat()
     for row in holdings_report:
         if row.get("action") and not row.get("error"):
             log_signal(row["ticker"], "Portfolio action engine", row["action"], row.get("final_score") or 0)
-    signals = pd.read_csv("signals_log.csv").tail(50) if Path("signals_log.csv").exists() else pd.DataFrame()
+            signal_rows.append(
+                {
+                    "date": now,
+                    "ticker": row["ticker"],
+                    "strategy": "Portfolio action engine",
+                    "action": row["action"],
+                    "score": row.get("final_score") or 0,
+                    "status": "Active",
+                }
+            )
+    signals = pd.DataFrame(signal_rows)
     blended_sharpe_proxy = sum(row["avg_signal"] for row in rows) / max(len(rows), 1)
     return {"strategies": pd.DataFrame(rows), "signals": signals, "blended_sharpe_proxy": blended_sharpe_proxy}
 

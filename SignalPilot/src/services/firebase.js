@@ -274,6 +274,30 @@ export async function updateUserSettings(userId, settings) {
   );
 }
 
+export async function saveImportedAnalysis(userId, analysis, importSource = null) {
+  requireFirebase();
+  const runRef = await addDoc(collection(db, "users", userId, "analysisRuns"), {
+    ...analysis.latestRun,
+    importSource,
+    createdAt: serverTimestamp(),
+  });
+  await Promise.all([
+    ...(analysis.holdings || []).map((holding) =>
+      setDoc(doc(db, "users", userId, "holdings", holding.ticker), {
+        ...firestoreHolding(holding),
+        broker: importSource?.detectedBroker || "file-import",
+        accountId: "uploaded-holdings",
+        snapshotAt: serverTimestamp(),
+      }),
+    ),
+    ...(analysis.actions || []).map((signal) => addDoc(collection(db, "users", userId, "analysisRuns", runRef.id, "actions"), firestoreSignal(signal))),
+    ...(analysis.buyIdeas || []).map((idea) => addDoc(collection(db, "users", userId, "analysisRuns", runRef.id, "buyIdeas"), firestoreIdea(idea))),
+    ...(analysis.factorIc || []).map((factor) => addDoc(collection(db, "users", userId, "factorIcLog"), firestoreFactor(factor))),
+    ...(analysis.signals || []).map((signal) => addDoc(collection(db, "users", userId, "strategySignals"), firestoreSignal(signal))),
+  ]);
+  return runRef.id;
+}
+
 export async function addBrokerConnection(userId, connection) {
   requireFirebase();
   const broker = connection.broker || "robinhood";
@@ -314,7 +338,7 @@ export async function callBackendFunction(name, payload) {
 
 function requireFirebase() {
   if (!firebaseReady || !app || !auth || !db) {
-    throw new Error("Firebase is not configured. Set VITE_FIREBASE_* values in SignalPilot/.env.local.");
+    throw new Error("Account saving is disabled in local mode. Add Firebase values in .env.local when you want saved analysis history.");
   }
 }
 
@@ -388,9 +412,9 @@ function firestoreHolding(holding) {
     ticker: holding.ticker,
     broker: "demo",
     accountId: "demo-account",
-    quantity: null,
-    avgCost: null,
-    price: null,
+    quantity: holding.quantity ?? null,
+    avgCost: holding.avgCost ?? null,
+    price: holding.price ?? null,
     marketValue: holding.marketValue,
     unrealizedGainPct: holding.unrealizedGain,
     portfolioWeight: holding.portfolioWeight,

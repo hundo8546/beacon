@@ -1,28 +1,75 @@
+import { getAuth } from "firebase/auth";
+
 const API_BASE = import.meta.env.VITE_SIGNALPILOT_API_URL || "http://127.0.0.1:8787";
 
+async function getAuthHeaders() {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return null;
+    const token = await user.getIdToken(false);
+    return { Authorization: `Bearer ${token}` };
+  } catch (error) {
+    console.error("Failed to get auth token:", error);
+    return null;
+  }
+}
+
 export async function analyzePortfolio(options) {
+  const headers = await getAuthHeaders();
+  if (!headers) {
+    throw new Error("You must be signed in to analyze your portfolio.");
+  }
   const response = await fetch(`${API_BASE}/api/analyze`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(options),
   });
   return readJson(response);
 }
 
-export async function connectBrokerViaBackend(options) {
-  const response = await fetch(`${API_BASE}/api/connect-broker`, {
+export async function analyzeSecurity(options) {
+  const headers = await getAuthHeaders();
+  if (!headers) {
+    throw new Error("You must be signed in to search securities.");
+  }
+  const response = await fetch(`${API_BASE}/api/security`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(typeof options === "string" ? { broker: options } : options),
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(typeof options === "string" ? { ticker: options } : options),
   });
   return readJson(response);
 }
 
-export async function analyzeSecurity(options) {
-  const response = await fetch(`${API_BASE}/api/security`, {
+export async function searchSymbols(query) {
+  const headers = await getAuthHeaders();
+  if (!headers) {
+    throw new Error("You must be signed in to search symbols.");
+  }
+  const response = await fetch(`${API_BASE}/api/search-symbols`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(typeof options === "string" ? { ticker: options } : options),
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ query }),
+  });
+  return readJson(response);
+}
+
+export async function importHoldingsFile(file, options = {}) {
+  const headers = await getAuthHeaders();
+  if (!headers) {
+    throw new Error("You must be signed in to import holdings.");
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options.brokerHint) formData.append("brokerHint", options.brokerHint);
+  if (options.extraTickersText) formData.append("extraTickersText", options.extraTickersText);
+  formData.append("limit", String(options.limit || 5));
+  formData.append("includeOwnedIdeas", String(Boolean(options.includeOwnedIdeas)));
+  formData.append("useOpenAi", String(Boolean(options.useOpenAi)));
+  const response = await fetch(`${API_BASE}/api/import-holdings`, {
+    method: "POST",
+    headers, // do NOT set Content-Type for multipart
+    body: formData,
   });
   return readJson(response);
 }
@@ -43,6 +90,7 @@ export function mapBackendAnalysis(payload) {
   const signals = ((payload.monitor && payload.monitor.signals) || []).map(mapSignal);
   const summary = payload.summary || {};
   const master = payload.master || {};
+  const importSource = payload.importSource || null;
 
   return {
     holdings,
@@ -59,16 +107,21 @@ export function mapBackendAnalysis(payload) {
       investmentPlan: "",
       status: "complete",
       asOf: payload.asOf,
+      importSource,
     },
     actions,
     buyIdeas: ideas,
     factorIc,
     signals,
+    master,
+    rawBackend: payload,
     backendMeta: {
       asOf: payload.asOf,
       elapsedSeconds: payload.elapsedSeconds,
       dynamicUniverse: payload.dynamicUniverse,
       watchlist: payload.watchlist,
+      importSource,
+      summary,
     },
   };
 }
@@ -76,6 +129,9 @@ export function mapBackendAnalysis(payload) {
 function mapHolding(row) {
   return {
     ticker: row.ticker,
+    quantity: row.quantity ?? null,
+    avgCost: row.avg_cost ?? row.avgCost ?? null,
+    price: row.price ?? null,
     action: row.action || "HOLD",
     portfolioWeight: row.portfolio_weight || 0,
     marketValue: row.market_value || 0,

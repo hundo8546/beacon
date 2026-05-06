@@ -16,11 +16,13 @@ Beacon is a read-only decision-support app for reviewing a portfolio, ranking po
 
 ## Backend Responsibilities
 
-The backend turns raw portfolio and market inputs into structured analysis for Beacon. It can import Robinhood holdings, read manual holdings, fetch market history, pull fundamentals, collect headline context, score holdings, rank candidate tickers, compute factor snapshots, run simple strategy monitoring, and return JSON for the React dashboard.
+The backend turns raw portfolio and market inputs into structured analysis for Beacon. It can import CSV or XLSX holdings exports, import Robinhood holdings for local testing, read manual holdings, fetch market history, pull fundamentals, collect headline context, score holdings, rank candidate tickers, compute factor snapshots, run simple strategy monitoring, and return JSON for the React dashboard.
 
 Robinhood support is read-only. The backend uses `robin_stocks` to load holdings and account totals. It uses Robinhood account values when available so portfolio weight and market value match the brokerage view instead of being reconstructed from delayed market prices.
 
 Manual holdings are supported through `MANUAL_HOLDINGS`. This is useful for local testing, demo workflows, and cases where the user does not want to connect a broker.
+
+File upload is now the preferred workflow. Uploaded files are temporary backend inputs. The API parses the file, normalizes holdings, runs analysis, returns structured JSON, and deletes the raw upload.
 
 Market data comes mainly from `yfinance`. The backend uses it for price history, trend fields, drawdown, volatility, fundamentals, analyst target gap, and candidate scoring. News context can come from NewsAPI when configured, with RSS fallback behavior in the portfolio engine.
 
@@ -37,9 +39,9 @@ python3 signalpilotv0/api.py 8787
 Available local endpoints:
 
 - `GET /api/health`: returns API health and service name.
+- `POST /api/import-holdings`: accepts a CSV or XLSX holdings file, normalizes brokerage columns, and runs portfolio analysis.
 - `POST /api/analyze`: runs portfolio analysis for the React dashboard.
 - `POST /api/security`: looks up a ticker, ETF, or fund with price history, factor snapshot, score, and reasons.
-- `POST /api/connect-broker`: validates local broker credentials and returns broker metadata.
 - `POST /api/backtest`: runs a strategy backtest for a supplied universe.
 
 The local API binds to `127.0.0.1`. CORS is permissive so the local React app can call it during development. Restrict CORS before deploying any hosted backend.
@@ -51,6 +53,22 @@ The local API binds to `127.0.0.1`. CORS is permissive so the local React app ca
 The analysis flow then loads holdings, loads account totals when available, builds a dynamic candidate universe, analyzes holdings, ranks buy ideas, computes factor snapshots, builds strategy monitor output, and creates a summary. If OpenAI is enabled, it adds a consolidated plain-English portfolio analysis.
 
 The response includes holdings, holdings report, account totals, portfolio summary, action cards, dynamic universe, watchlist, buy ideas, factor data, strategy monitor output, and optional master analysis.
+
+## Holdings File Import
+
+`POST /api/import-holdings` accepts multipart form data with a `file` field and optional `brokerHint`. Supported formats are CSV and XLSX.
+
+Beacon detects common brokerage exports by matching headers:
+
+- Robinhood: `Symbol`, `Quantity`, `Average Cost`
+- Fidelity: `Symbol`, `Quantity`, `Cost Basis Per Share`
+- Schwab: `Symbol`, `Quantity`, `Price Paid`
+- E*TRADE: `Symbol`, `Qty`, `Avg Cost/Share`
+- Webull: `Ticker`, `Total Qty`, `Avg Cost`
+- Interactive Brokers: `Financial Instrument`, `Quantity`, `Average Price`
+- Generic sheets: `Ticker` or `Symbol`, `Shares` or `Quantity`, and average cost
+
+The normalized fields are ticker, shares, average cost, current price, and market value. Current price and market value are optional because the analysis engine can fetch market data when those fields are missing.
 
 ## Security Lookup Flow
 

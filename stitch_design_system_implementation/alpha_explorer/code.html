@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SignalPilot - Alpha Explorer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#7c839b",
+                    "tertiary": "#000000",
+                    "tertiary-fixed-dim": "#dec29a",
+                    "primary": "#000000",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#fcf8fa",
+                    "surface-container-high": "#eae7e9",
+                    "surface-tint": "#565e74",
+                    "on-tertiary": "#ffffff",
+                    "accent-green": "#10B981",
+                    "surface-container-low": "#f6f3f5",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "secondary-container": "#d5e3fd",
+                    "on-surface-variant": "#45464d",
+                    "tertiary-container": "#271901",
+                    "accent-blue": "#2563EB",
+                    "background-main": "#F8FAFC",
+                    "inverse-on-surface": "#f3f0f2",
+                    "inverse-primary": "#bec6e0",
+                    "surface-variant": "#e4e2e4",
+                    "on-secondary-container": "#57657b",
+                    "surface": "#fcf8fa",
+                    "primary-fixed": "#dae2fd",
+                    "on-surface": "#1b1b1d",
+                    "accent-slate": "#64748B",
+                    "surface-container": "#f0edef",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-background": "#1b1b1d",
+                    "surface-container-highest": "#e4e2e4",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "outline": "#76777d",
+                    "status-positive": "#059669",
+                    "on-tertiary-container": "#98805d",
+                    "surface-card": "#FFFFFF",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "border-subtle": "#E2E8F0",
+                    "secondary-fixed": "#d5e3fd",
+                    "outline-variant": "#c6c6cd",
+                    "primary-container": "#131b2e",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "status-warning": "#D97706",
+                    "secondary": "#515f74",
+                    "inverse-surface": "#303032",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-dim": "#dcd9db",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-tertiary-fixed": "#271901",
+                    "tertiary-fixed": "#fcdeb5",
+                    "status-danger": "#DC2626",
+                    "error-container": "#ffdad6",
+                    "background": "#fcf8fa",
+                    "on-tertiary-fixed-variant": "#574425",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "gutter": "20px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "unit": "4px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "h3": ["Manrope"],
+                    "h1": ["Manrope"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "data-mono": ["monospace"],
+                    "h2": ["Manrope"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body { background-color: #F8FAFC; }
+    </style>
+</head>
+<body class="font-body-md text-on-background">
+<!-- Top Navigation Bar -->
+<header class="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40">
+<div class="flex justify-between items-center w-full px-6 h-16 max-w-[1440px] mx-auto">
+<div class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tighter font-['Manrope']">SignalPilot</div>
+<nav class="hidden md:flex items-center space-x-8 h-full">
+<a class="font-['Manrope'] text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400 pb-5 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200" href="#">Dashboard</a>
+<a class="font-['Manrope'] text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400 pb-5 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200" href="#">Portfolio</a>
+<a class="font-['Manrope'] text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400 pb-5 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200" href="#">Strategy</a>
+<a class="font-['Manrope'] text-sm font-medium tracking-tight text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-5" href="#">Alpha Explorer</a>
+<a class="font-['Manrope'] text-sm font-medium tracking-tight text-slate-500 dark:text-slate-400 pb-5 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200" href="#">Backtester</a>
+</nav>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-lg transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-lg transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
+<img alt="User profile avatar" data-alt="A professional headshot of a middle-aged male executive with a confident smile, wearing a dark navy blazer over a clean white shirt. The background is a blurred, high-end office environment with soft, warm lighting. The image conveys a sense of reliability, intelligence, and financial expertise consistent with a private wealth management application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBS_QAEaWMiG1MFJjzsHecPWcjX6AaIVJtlcSFNfUaV3wG_COpOiZOfk8R2dfSPywkP4PCw_fX_ym4l8RsQCI89QWxHUs9p9mjH1L8ynIATTmr7Wo8bLr0zVucuWIcrNF2JHNkOxlmJ-a6-J1x8xu26UWPTdGT3YFTdWNM639DmC4UrL1QPrfq2lvAgxCvBaG0fZRDdTXwbaOeZEA5IQLRZ8U1-e0PN_CXP2ygmv56KSnsDB3h_0RnqGm8L2pKKTuwLJkXhpaNn4qja"/>
+</div>
+</div>
+</div>
+</header>
+<div class="flex max-w-[1440px] mx-auto min-h-[calc(100vh-64px)]">
+<!-- Side Navigation -->
+<aside class="hidden lg:flex flex-col p-4 space-y-2 bg-slate-50 dark:bg-slate-900 h-screen w-64 border-r border-slate-200 dark:border-slate-800 sticky top-16">
+<div class="px-4 py-6 mb-4">
+<h2 class="text-lg font-black text-slate-900 dark:text-white font-['Manrope'] uppercase tracking-widest">Navigation</h2>
+<p class="text-xs text-slate-500 font-medium">Private Wealth Dashboard</p>
+</div>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="pie_chart">pie_chart</span>
+<span>Portfolio</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>Strategy</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span>Alpha Explorer</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="history_query">history</span>
+<span>Backtester</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span>Sentiment</span>
+</a>
+<div class="mt-auto pt-8">
+<button class="w-full bg-primary-container text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity">
+                    Connect Broker
+                </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-6 md:p-8 lg:p-10 space-y-8">
+<!-- Page Header & Active Factors -->
+<section class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<h1 class="font-h1 text-h1 text-slate-900">Alpha Explorer</h1>
+<p class="font-body-md text-slate-500">Discover and validate high-conviction buy signals based on quantitative factors.</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<div class="flex items-center space-x-2 px-3 py-1.5 bg-accent-blue/10 border border-accent-blue/20 rounded-full">
+<span class="w-2 h-2 bg-accent-blue rounded-full"></span>
+<span class="text-xs font-bold text-accent-blue uppercase tracking-wider">Momentum: Strong</span>
+</div>
+<div class="flex items-center space-x-2 px-3 py-1.5 bg-accent-green/10 border border-accent-green/20 rounded-full">
+<span class="w-2 h-2 bg-accent-green rounded-full"></span>
+<span class="text-xs font-bold text-accent-green uppercase tracking-wider">Quality: Robust</span>
+</div>
+<div class="flex items-center space-x-2 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full">
+<span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+<span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Value: Neutral</span>
+</div>
+</div>
+</section>
+<!-- Bento Grid Layout for Charts -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Factor IC Bar Chart Card -->
+<div class="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-h3 text-h3 text-slate-900">Factor Information Coefficient (IC)</h3>
+<span class="material-symbols-outlined text-slate-400" data-icon="info">info</span>
+</div>
+<div class="flex-1 flex flex-col justify-end space-y-6">
+<!-- Bar Chart Placeholder -->
+<div class="space-y-4">
+<div class="flex items-end h-32 space-x-4 px-2">
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-full bg-accent-blue rounded-t-sm transition-all duration-300 group-hover:opacity-80" style="height: 85%;"></div>
+<span class="mt-2 text-xs font-bold text-slate-600 font-['Inter']">Trend</span>
+</div>
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-full bg-accent-green rounded-t-sm transition-all duration-300 group-hover:opacity-80" style="height: 65%;"></div>
+<span class="mt-2 text-xs font-bold text-slate-600 font-['Inter']">Quality</span>
+</div>
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-full bg-slate-300 rounded-t-sm transition-all duration-300 group-hover:opacity-80" style="height: 30%;"></div>
+<span class="mt-2 text-xs font-bold text-slate-600 font-['Inter']">Value</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-slate-100">
+<p class="font-body-sm text-slate-500">The trend factor is currently showing the highest predictive power for forward returns over a 20-day horizon.</p>
+</div>
+</div>
+<!-- Rolling IC Line Chart Card -->
+<div class="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-h3 text-h3 text-slate-900">Rolling Factor IC (90-Day)</h3>
+<p class="text-xs text-slate-400 font-medium uppercase tracking-tighter">Signal Stability Over Time</p>
+</div>
+<div class="flex space-x-2">
+<button class="px-3 py-1 bg-slate-50 border border-slate-200 text-xs font-bold rounded-lg text-slate-600">1M</button>
+<button class="px-3 py-1 bg-primary-container text-white text-xs font-bold rounded-lg">3M</button>
+<button class="px-3 py-1 bg-slate-50 border border-slate-200 text-xs font-bold rounded-lg text-slate-600">1Y</button>
+</div>
+</div>
+<!-- Line Chart SVG Simulation -->
+<div class="relative h-48 w-full">
+<svg class="w-full h-full preserve-3d" viewbox="0 0 400 100">
+<!-- Grid Lines -->
+<line stroke="#F1F5F9" stroke-width="1" x1="0" x2="400" y1="20" y2="20"></line>
+<line stroke="#F1F5F9" stroke-width="1" x1="0" x2="400" y1="50" y2="50"></line>
+<line stroke="#F1F5F9" stroke-width="1" x1="0" x2="400" y1="80" y2="80"></line>
+<!-- Trend Line -->
+<path d="M0,80 Q50,40 100,60 T200,30 T300,50 T400,20" fill="none" stroke="#2563EB" stroke-width="2"></path>
+<!-- Quality Line -->
+<path d="M0,70 Q50,90 100,50 T200,40 T300,30 T400,35" fill="none" stroke="#10B981" stroke-dasharray="4" stroke-width="2"></path>
+</svg>
+<!-- Axis Labels -->
+<div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400 font-['Inter'] uppercase">
+<span>Oct 2023</span>
+<span>Nov 2023</span>
+<span>Dec 2023</span>
+<span>Jan 2024</span>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-slate-100">
+<p class="font-body-sm text-slate-500">Quality signals have remained exceptionally stable, while Trend volatility has spiked recently due to market rotation.</p>
+</div>
+</div>
+</div>
+<!-- Buy Ideas Section -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="font-h2 text-h2 text-slate-900">Conviction Buy Ideas</h2>
+<div class="flex items-center space-x-2 text-slate-500 font-medium text-sm">
+<span>Sort by:</span>
+<select class="bg-transparent border-none focus:ring-0 font-bold text-slate-900 cursor-pointer">
+<option>Signal Score</option>
+<option>Market Cap</option>
+<option>Sector</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Buy Idea Card 1 -->
+<div class="bg-white border-l-4 border-l-accent-blue border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="text-xs font-bold text-slate-400 uppercase font-['Inter'] mb-1">Technology • SaaS</div>
+<h4 class="text-xl font-extrabold text-slate-900 font-['Manrope']">ADBE</h4>
+<p class="text-sm text-slate-600 font-medium">Adobe Systems Inc.</p>
+</div>
+<div class="bg-accent-blue/5 px-4 py-2 rounded-lg text-center border border-accent-blue/10">
+<div class="text-xl font-black text-accent-blue font-['Manrope']">94</div>
+<div class="text-[10px] font-bold text-accent-blue uppercase tracking-tighter">Signal</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-3 bg-slate-50 rounded-lg">
+<p class="font-body-sm text-slate-600">A higher score means the idea has stronger trend support and significant quality tailwinds.</p>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center text-status-positive font-bold">
+<span class="material-symbols-outlined text-lg" data-icon="trending_up">trending_up</span>
+<span class="ml-1">+12.4% Est.</span>
+</div>
+<div class="text-slate-400">Risk: <span class="text-slate-700 font-bold">Moderate</span></div>
+</div>
+</div>
+</div>
+<div class="bg-slate-50 px-5 py-3 flex justify-between items-center border-t border-slate-100">
+<button class="text-xs font-bold text-accent-blue uppercase tracking-widest hover:underline">View Analysis</button>
+<button class="bg-primary-container text-white px-4 py-1.5 rounded text-xs font-bold">Add to Portfolio</button>
+</div>
+</div>
+<!-- Buy Idea Card 2 -->
+<div class="bg-white border-l-4 border-l-accent-blue border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="text-xs font-bold text-slate-400 uppercase font-['Inter'] mb-1">Finance • Payments</div>
+<h4 class="text-xl font-extrabold text-slate-900 font-['Manrope']">V</h4>
+<p class="text-sm text-slate-600 font-medium">Visa Inc.</p>
+</div>
+<div class="bg-accent-blue/5 px-4 py-2 rounded-lg text-center border border-accent-blue/10">
+<div class="text-xl font-black text-accent-blue font-['Manrope']">88</div>
+<div class="text-[10px] font-bold text-accent-blue uppercase tracking-tighter">Signal</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-3 bg-slate-50 rounded-lg">
+<p class="font-body-sm text-slate-600">Strong institutional accumulation detected alongside improving cash flow margins.</p>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center text-status-positive font-bold">
+<span class="material-symbols-outlined text-lg" data-icon="trending_up">trending_up</span>
+<span class="ml-1">+8.2% Est.</span>
+</div>
+<div class="text-slate-400">Risk: <span class="text-slate-700 font-bold">Low</span></div>
+</div>
+</div>
+</div>
+<div class="bg-slate-50 px-5 py-3 flex justify-between items-center border-t border-slate-100">
+<button class="text-xs font-bold text-accent-blue uppercase tracking-widest hover:underline">View Analysis</button>
+<button class="bg-primary-container text-white px-4 py-1.5 rounded text-xs font-bold">Add to Portfolio</button>
+</div>
+</div>
+<!-- Buy Idea Card 3 -->
+<div class="bg-white border-l-4 border-l-accent-blue border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="text-xs font-bold text-slate-400 uppercase font-['Inter'] mb-1">Consumer • Luxury</div>
+<h4 class="text-xl font-extrabold text-slate-900 font-['Manrope']">LVMH</h4>
+<p class="text-sm text-slate-600 font-medium">LVMH Moët Hennessy</p>
+</div>
+<div class="bg-accent-blue/5 px-4 py-2 rounded-lg text-center border border-accent-blue/10">
+<div class="text-xl font-black text-accent-blue font-['Manrope']">82</div>
+<div class="text-[10px] font-bold text-accent-blue uppercase tracking-tighter">Signal</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-3 bg-slate-50 rounded-lg">
+<p class="font-body-sm text-slate-600">Resilient premium demand is offsetting broader macro headwinds, boosting signal strength.</p>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center text-status-positive font-bold">
+<span class="material-symbols-outlined text-lg" data-icon="trending_up">trending_up</span>
+<span class="ml-1">+15.7% Est.</span>
+</div>
+<div class="text-slate-400">Risk: <span class="text-slate-700 font-bold">High</span></div>
+</div>
+</div>
+</div>
+<div class="bg-slate-50 px-5 py-3 flex justify-between items-center border-t border-slate-100">
+<button class="text-xs font-bold text-accent-blue uppercase tracking-widest hover:underline">View Analysis</button>
+<button class="bg-primary-container text-white px-4 py-1.5 rounded text-xs font-bold">Add to Portfolio</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Bottom Navigation for Mobile -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 pb-safe bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-['Manrope'] text-[10px] font-bold uppercase tracking-widest">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span>Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-['Manrope'] text-[10px] font-bold uppercase tracking-widest">
+<span class="material-symbols-outlined" data-icon="pie_chart">pie_chart</span>
+<span>Portfolio</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-['Manrope'] text-[10px] font-bold uppercase tracking-widest">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span>
+<span>Strategy</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-600 dark:text-blue-400 scale-110 font-['Manrope'] text-[10px] font-bold uppercase tracking-widest">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span>Alpha</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-['Manrope'] text-[10px] font-bold uppercase tracking-widest">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+<span>More</span>
+</div>
+</nav>
+</body></html>

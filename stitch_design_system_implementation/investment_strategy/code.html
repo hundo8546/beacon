@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#7c839b",
+                    "tertiary": "#000000",
+                    "tertiary-fixed-dim": "#dec29a",
+                    "primary": "#000000",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#fcf8fa",
+                    "surface-container-high": "#eae7e9",
+                    "surface-tint": "#565e74",
+                    "on-tertiary": "#ffffff",
+                    "accent-green": "#10B981",
+                    "surface-container-low": "#f6f3f5",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "secondary-container": "#d5e3fd",
+                    "on-surface-variant": "#45464d",
+                    "tertiary-container": "#271901",
+                    "accent-blue": "#2563EB",
+                    "background-main": "#F8FAFC",
+                    "inverse-on-surface": "#f3f0f2",
+                    "inverse-primary": "#bec6e0",
+                    "surface-variant": "#e4e2e4",
+                    "on-secondary-container": "#57657b",
+                    "surface": "#fcf8fa",
+                    "primary-fixed": "#dae2fd",
+                    "on-surface": "#1b1b1d",
+                    "accent-slate": "#64748B",
+                    "surface-container": "#f0edef",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-background": "#1b1b1d",
+                    "surface-container-highest": "#e4e2e4",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "outline": "#76777d",
+                    "status-positive": "#059669",
+                    "on-tertiary-container": "#98805d",
+                    "surface-card": "#FFFFFF",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "border-subtle": "#E2E8F0",
+                    "secondary-fixed": "#d5e3fd",
+                    "outline-variant": "#c6c6cd",
+                    "primary-container": "#131b2e",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "status-warning": "#D97706",
+                    "secondary": "#515f74",
+                    "inverse-surface": "#303032",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-dim": "#dcd9db",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-tertiary-fixed": "#271901",
+                    "tertiary-fixed": "#fcdeb5",
+                    "status-danger": "#DC2626",
+                    "error-container": "#ffdad6",
+                    "background": "#fcf8fa",
+                    "on-tertiary-fixed-variant": "#574425",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "gutter": "20px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "unit": "4px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "h3": ["Manrope"],
+                    "h1": ["Manrope"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "data-mono": ["monospace"],
+                    "h2": ["Manrope"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #F8FAFC; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-tab-indicator {
+            position: relative;
+        }
+        .active-tab-indicator::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #2563EB;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-6 h-16 max-w-[1440px] mx-auto">
+<div class="text-xl font-extrabold text-slate-900 tracking-tighter font-h1">SignalPilot</div>
+<nav class="hidden md:flex items-center space-x-8 font-['Manrope'] text-sm font-medium tracking-tight">
+<a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Dashboard</a>
+<a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Portfolio</a>
+<a class="text-blue-600 border-b-2 border-blue-600 pb-5" href="#">Strategy</a>
+<a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Alpha Explorer</a>
+<a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Backtester</a>
+</nav>
+<div class="flex items-center space-x-4">
+<button class="p-2 hover:bg-slate-50 rounded-full transition-all duration-200">
+<span class="material-symbols-outlined text-slate-600">notifications</span>
+</button>
+<button class="p-2 hover:bg-slate-50 rounded-full transition-all duration-200">
+<span class="material-symbols-outlined text-slate-600">settings</span>
+</button>
+<img alt="User profile avatar" class="w-8 h-8 rounded-full border border-slate-200" data-alt="A professional headshot of a middle-aged man with short dark hair and a friendly expression. He is wearing a clean, modern white shirt in a brightly lit studio environment. The lighting is soft and high-key, reflecting a corporate modern and trustworthy aesthetic with a clean, minimalist background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdC-kgXlMy9VemmbwBY9EReIDVv_QAANPVgHUELbuNgMwCjV5vlpd3XpBmqprUnIvQ8RqHjL69Lw3jw8zwEL_ab1tD1bJFUT1lX8bf2YslMQoi21LIvAYlwpD8DH2VtvxUN_a-llckoKFGsOpKwvsuAZK7gqrmdGSUxtizqDtQ6jXuUGIxiOO9MOJYaosmzILBbMLBt8YWajGx27XGoZMjBl-YQs4TcxfT9Msjr-rBKCsC1i_mQej9mUn23tuiyZoMrZBdj5f8QPWv"/>
+</div>
+</div>
+</header>
+<main class="max-w-[1280px] mx-auto px-6 py-10 pb-24">
+<!-- Input Section -->
+<section class="mb-12">
+<h1 class="font-h1 text-h1 text-slate-900 mb-8 max-w-2xl">I have <span class="text-blue-600 underline decoration-blue-200 underline-offset-8">$10,000</span> to invest. What should I do?</h1>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+<div class="md:col-span-4">
+<label class="block font-label-caps text-label-caps text-on-primary-container mb-2 uppercase tracking-widest">Cash Available</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-h2">$</span>
+<input class="w-full bg-white border border-border-subtle rounded-xl py-4 pl-10 pr-4 font-h2 text-h2 text-slate-900 focus:ring-2 focus:ring-accent-blue focus:border-transparent outline-none transition-all" type="text" value="10,000"/>
+</div>
+</div>
+<div class="md:col-span-6">
+<label class="block font-label-caps text-label-caps text-on-primary-container mb-2 uppercase tracking-widest">Risk Style</label>
+<div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+<button class="flex-1 py-3 px-4 rounded-lg font-h3 text-slate-500 hover:text-slate-700 transition-all">Conservative</button>
+<button class="flex-1 py-3 px-4 rounded-lg bg-white shadow-sm border border-slate-200 font-h3 text-blue-600 transition-all">Balanced</button>
+<button class="flex-1 py-3 px-4 rounded-lg font-h3 text-slate-500 hover:text-slate-700 transition-all">Aggressive</button>
+</div>
+</div>
+<div class="md:col-span-2">
+<button class="w-full bg-primary-container text-white font-h3 py-4 rounded-xl hover:opacity-90 transition-all shadow-md">
+                        Update Plan
+                    </button>
+</div>
+</div>
+</section>
+<!-- Output Grid: Bento Style -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Column: Deployment Schedule (4 cols) -->
+<div class="lg:col-span-4 space-y-6">
+<div class="bg-white rounded-xl border border-border-subtle p-6">
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-h2 text-h2 text-slate-900">Deployment</h2>
+<span class="material-symbols-outlined text-slate-400">schedule</span>
+</div>
+<div class="space-y-4">
+<!-- Card 1 -->
+<div class="p-4 rounded-xl border-l-4 border-accent-blue bg-blue-50/30 border-y border-r border-slate-100">
+<p class="font-label-caps text-accent-blue mb-1">Today</p>
+<p class="font-h3 text-slate-900">$3,000</p>
+<p class="font-body-sm text-slate-500 mt-1">Initial entry into core positions to establish market presence.</p>
+</div>
+<!-- Card 2 -->
+<div class="p-4 rounded-xl border-l-4 border-slate-300 bg-white border-y border-r border-slate-100">
+<p class="font-label-caps text-slate-400 mb-1">Next Week</p>
+<p class="font-h3 text-slate-900">$4,000</p>
+<p class="font-body-sm text-slate-500 mt-1">Staged buy-in for technical breakout levels in tech and energy.</p>
+</div>
+<!-- Card 3 -->
+<div class="p-4 rounded-xl border-l-4 border-slate-300 bg-white border-y border-r border-slate-100 opacity-60">
+<p class="font-label-caps text-slate-400 mb-1">Later</p>
+<p class="font-h3 text-slate-900">$3,000</p>
+<p class="font-body-sm text-slate-500 mt-1">Opportunistic reserve for potential month-end pullbacks.</p>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-slate-100">
+<p class="font-body-sm text-slate-500">
+<span class="font-semibold text-slate-900">Signal Note:</span> This staging reduces immediate volatility risk while ensuring you don't miss the current momentum trend.
+                        </p>
+</div>
+</div>
+<div class="bg-primary-container text-white rounded-xl p-6">
+<h3 class="font-h3 mb-4 flex items-center">
+<span class="material-symbols-outlined mr-2 text-status-warning">warning</span>
+                        Risks Panel
+                    </h3>
+<ul class="space-y-3 font-body-sm text-slate-300">
+<li class="flex items-start">
+<span class="w-1.5 h-1.5 rounded-full bg-status-warning mt-1.5 mr-2 shrink-0"></span>
+                            CPI data release next Tuesday may trigger short-term yield volatility.
+                        </li>
+<li class="flex items-start">
+<span class="w-1.5 h-1.5 rounded-full bg-status-warning mt-1.5 mr-2 shrink-0"></span>
+                            Concentration risk in Semi-conductors (18% of total suggested allocation).
+                        </li>
+</ul>
+</div>
+</div>
+<!-- Column: Allocations (8 cols) -->
+<div class="lg:col-span-8 space-y-6">
+<div class="bg-white rounded-xl border border-border-subtle p-6">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-h2 text-h2 text-slate-900">Suggested Allocation</h2>
+<p class="font-body-sm text-slate-500">Diversified "Balanced" model for long-term growth.</p>
+</div>
+<div class="flex items-center space-x-2">
+<span class="bg-green-100 text-status-positive px-3 py-1 rounded-full font-label-caps">+12.4% Expected</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Ticker Card 1 -->
+<div class="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center">
+<div class="w-10 h-10 rounded bg-slate-900 text-white flex items-center justify-center font-bold mr-3">SPY</div>
+<div>
+<p class="font-h3 text-slate-900">S&amp;P 500 ETF</p>
+<p class="font-body-sm text-slate-500">Core Equity</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-h3 text-slate-900">40%</p>
+<p class="font-data-mono text-slate-400">$4,000</p>
+</div>
+</div>
+<div class="bg-slate-50 p-3 rounded-lg border-l-2 border-slate-300">
+<p class="font-body-sm text-slate-600 italic leading-relaxed">
+                                    "Serves as the volatility anchor. Current momentum signals indicate low immediate downside risk for large-cap indices."
+                                </p>
+</div>
+</div>
+<!-- Ticker Card 2 -->
+<div class="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center">
+<div class="w-10 h-10 rounded bg-blue-600 text-white flex items-center justify-center font-bold mr-3">NVDA</div>
+<div>
+<p class="font-h3 text-slate-900">NVIDIA Corp</p>
+<p class="font-body-sm text-slate-500">Growth / Semi</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-h3 text-slate-900">18%</p>
+<p class="font-data-mono text-slate-400">$1,800</p>
+</div>
+</div>
+<div class="bg-slate-50 p-3 rounded-lg border-l-2 border-slate-300">
+<p class="font-body-sm text-slate-600 italic leading-relaxed">
+                                    "Captures AI infrastructure expansion. Selected for strong relative strength vs the sector average."
+                                </p>
+</div>
+</div>
+<!-- Ticker Card 3 -->
+<div class="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center">
+<div class="w-10 h-10 rounded bg-accent-green text-white flex items-center justify-center font-bold mr-3">TLT</div>
+<div>
+<p class="font-h3 text-slate-900">Treasury Bond</p>
+<p class="font-body-sm text-slate-500">Fixed Income</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-h3 text-slate-900">25%</p>
+<p class="font-data-mono text-slate-400">$2,500</p>
+</div>
+</div>
+<div class="bg-slate-50 p-3 rounded-lg border-l-2 border-slate-300">
+<p class="font-body-sm text-slate-600 italic leading-relaxed">
+                                    "Hedge against economic cooling. Yield levels are currently attractive for entry in a balanced portfolio."
+                                </p>
+</div>
+</div>
+<!-- Ticker Card 4 -->
+<div class="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center">
+<div class="w-10 h-10 rounded bg-accent-slate text-white flex items-center justify-center font-bold mr-3">GLD</div>
+<div>
+<p class="font-h3 text-slate-900">Gold Shares</p>
+<p class="font-body-sm text-slate-500">Commodity</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-h3 text-slate-900">17%</p>
+<p class="font-data-mono text-slate-400">$1,700</p>
+</div>
+</div>
+<div class="bg-slate-50 p-3 rounded-lg border-l-2 border-slate-300">
+<p class="font-body-sm text-slate-600 italic leading-relaxed">
+                                    "Historical inflation hedge. Added to provide non-correlated returns during potential currency fluctuations."
+                                </p>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<button class="flex items-center space-x-2 text-blue-600 font-h3 hover:opacity-70 transition-all">
+<span>Execute Entire Strategy</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Chart Placeholder with Style Guidance Footer -->
+<div class="bg-white rounded-xl border border-border-subtle overflow-hidden">
+<div class="p-6 border-b border-slate-100">
+<h3 class="font-h3 text-slate-900">Portfolio Performance Projection</h3>
+</div>
+<div class="h-64 w-full bg-slate-50 relative flex items-center justify-center overflow-hidden">
+<!-- Abstract "Chart" visual -->
+<div class="absolute inset-0 flex items-end px-12 pb-12 space-x-8">
+<div class="w-full h-24 bg-blue-100 rounded-t-sm"></div>
+<div class="w-full h-32 bg-blue-200 rounded-t-sm"></div>
+<div class="w-full h-40 bg-blue-300 rounded-t-sm"></div>
+<div class="w-full h-48 bg-blue-400 rounded-t-sm"></div>
+<div class="w-full h-56 bg-blue-600 rounded-t-sm"></div>
+</div>
+<span class="material-symbols-outlined text-slate-200 text-6xl opacity-20">show_chart</span>
+</div>
+<div class="p-4 bg-slate-50 border-t border-slate-100">
+<p class="font-body-sm text-slate-500">
+<span class="font-bold text-slate-700">The Interpretation:</span> Based on historical data, this "Balanced" allocation has a 92% probability of outperforming cash over any 18-month rolling window while maintaining a maximum drawdown of less than 11%.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 pb-safe bg-white/90 backdrop-blur-md border-t border-slate-200 z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">pie_chart</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Portfolio</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-600 scale-110">
+<span class="material-symbols-outlined">trending_up</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Strategy</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Alpha</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">menu</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">More</span>
+</div>
+</nav>
+</body></html>

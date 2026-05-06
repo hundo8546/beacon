@@ -4,7 +4,7 @@ This directory contains the Beacon frontend. The folder is still named `SignalPi
 
 ## Role In The App
 
-The frontend is the main Beacon experience. It handles public pages, authentication, dashboard navigation, data subscriptions, broker metadata workflows, local API calls, and chart-like visualizations built in React and CSS.
+The frontend is the main Beacon experience. It handles public pages, authentication, dashboard navigation, data subscriptions, holdings import, local API calls, and chart-like visualizations built in React and CSS.
 
 The app can run in several states. It can show demo data when Firebase has no portfolio data. It can subscribe to Firestore after sign-in. It can call the local Python API for live analysis and ticker search. This makes the interface useful during setup instead of failing into an empty screen.
 
@@ -14,23 +14,25 @@ The public area includes the Beacon home page, login page, pricing page, privacy
 
 The authenticated app has these sections:
 
-- `Dashboard`: portfolio value, position count, concentration state, cash proxy, review actions, portfolio trend, risk snapshot, and buy ideas.
+- `Dashboard`: upload-first holdings import, portfolio value, position count, concentration state, cash proxy, review actions, portfolio trend, risk snapshot, buy ideas, and PDF save action.
 - `Portfolio`: holdings, action labels, position weights, unrealized gain, scenario impact, tax estimate, and action mix.
 - `Strategy`: cash deployment controls, risk style, include-owned toggle, allocation schedule, target allocation, and exit/tax plan.
 - `Ideas`: ranked buy candidates with score, price, reasons, and model decision text.
 - `Research`: factor IC snapshot, strategy monitor, market sentiment summary, and ranked research context.
 - `Sentiment`: Beacon intelligence summary, candidate context, and risk signals.
 - `Search`: ticker, ETF, or fund lookup through the Python backend.
-- `Profile`: Firebase profile, risk preference, tax rate, and broker connection metadata.
-- `Connect`: local broker validation and Firestore broker metadata creation.
+- `Profile`: Firebase profile, risk preference, tax rate, and saved import history.
+- `Import`: CSV/XLSX holdings upload as the primary workflow.
 
 ## Data Sources
 
 `src/services/demoData.js` provides the fallback data used when the app has no live portfolio yet.
 
-`src/services/firebase.js` initializes Firebase, handles auth, creates user profiles, subscribes to Firestore data, seeds demo data, saves plans, saves settings, and writes broker metadata.
+`src/services/firebase.js` initializes Firebase, handles auth, creates user profiles, subscribes to Firestore data, seeds demo data, saves plans, saves settings, and writes imported analysis history.
 
 `src/services/backend.js` calls the local Python API and maps backend response fields into frontend objects. It uses `VITE_SIGNALPILOT_API_URL` when set and falls back to `http://127.0.0.1:8787`.
+
+The upload workflow posts multipart form data to `/api/import-holdings`. The backend returns the same analysis shape used by the rest of the dashboard, so the UI refreshes as soon as parsing and analysis finish.
 
 ## Local Development
 
@@ -58,6 +60,8 @@ Override the backend URL when needed:
 ```bash
 VITE_SIGNALPILOT_API_URL=http://127.0.0.1:8787 npm run dev -- --port 5173
 ```
+
+Upload a CSV or XLSX holdings export from the Dashboard or Connect screen. Beacon runs analysis immediately after upload. No separate dashboard "Run analysis" button is used for portfolio files.
 
 ## Build
 

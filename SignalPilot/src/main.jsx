@@ -13,10 +13,10 @@ import {
   CircleDollarSign,
   Database,
   Download,
+  FileText,
   Gauge,
   LayoutDashboard,
   LineChart,
-  Lock,
   LogOut,
   PieChart,
   RefreshCw,
@@ -30,18 +30,18 @@ import {
   Target,
   TrendingUp,
   User,
+  Upload,
   WalletCards,
 } from "lucide-react";
 import "./styles.css";
 import { BeaconIcon } from "./components/BeaconIcon";
 import {
-  addBrokerConnection,
   confirmPhoneVerificationCode,
   createEmailAccount,
-  deleteBrokerConnection,
   ensureUserProfile,
   firebaseReady,
   sendPhoneVerificationCode,
+  saveImportedAnalysis,
   signInWithAnonymousTestUser,
   signInWithEmail,
   signOutOfFirebase,
@@ -57,7 +57,7 @@ import {
   demoSignals,
   demoStrategyPlan,
 } from "./services/demoData";
-import { analyzePortfolio, analyzeSecurity, connectBrokerViaBackend, mapBackendAnalysis } from "./services/backend";
+import { analyzeSecurity, importHoldingsFile, mapBackendAnalysis, searchSymbols } from "./services/backend";
 
 const nav = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -68,7 +68,7 @@ const nav = [
   { id: "sentiment", label: "Sentiment", icon: Brain },
   { id: "search", label: "Search", icon: Search },
   { id: "profile", label: "Profile", icon: User },
-  { id: "connect", label: "Connect", icon: Lock },
+  { id: "connect", label: "Import", icon: Upload },
 ];
 
 const COMMON_SYMBOLS = [
@@ -114,6 +114,14 @@ const PANEL_TOOLTIPS = {
   "Capital Allocation": "Cash amount available for staged deployment.",
   "Risk Style": "Controls how quickly the plan deploys cash and how strict exits should be.",
   "Factor Snapshot": "Momentum, volatility, drawdown, valuation, and target metrics for the searched security.",
+  "Factor IC": "Cross-sectional factor snapshot computed from the uploaded holdings plus the current candidate universe.",
+  "Strategy Monitor": "Portfolio action signals generated from the latest uploaded holdings analysis only.",
+  "Market Sentiment": "Sentiment and risk context derived from the uploaded holdings, candidate ideas, and available backend headlines.",
+  "Beacon Intelligence Summary": "Plain-English synthesis of the current uploaded portfolio, not a static market blurb.",
+  "Candidate Sentiment": "Current ranked ideas and their backend reasons for this portfolio universe.",
+  "Risk Feed": "Current holdings that triggered trim, do-not-add, event-risk, or concentration actions.",
+  "Holdings Detail": "Full parsed holdings set from the latest upload with backend scores and actions.",
+  "Upload Holdings": "File import starts the full backend analysis immediately. Raw files are discarded after parsing.",
   "Why It Scored This Way": "Plain-English reasons behind the security score.",
   "Recent Headlines": "Recent market/news context returned by the backend.",
 };
@@ -121,13 +129,13 @@ const PANEL_TOOLTIPS = {
 function App() {
   const [appView, setAppView] = useState(() => readAppRoute());
   const [publicPage, setPublicPage] = useState("home");
+  const [authStartMode, setAuthStartMode] = useState("create");
   const [theme, setTheme] = useState(() => sessionStorage.getItem("beacon_theme") || "dark");
   const [active, setActive] = useState("dashboard");
   const [cash, setCash] = useState(12000);
   const [riskStyle, setRiskStyle] = useState("Balanced");
   const [includeOwned, setIncludeOwned] = useState(false);
   const [backendData, setBackendData] = useState(null);
-  const [brokerCredentials, setBrokerCredentials] = useState(() => readSessionBrokerCredentials());
   const [topbarSearchQuery, setTopbarSearchQuery] = useState("");
   const [securityQuery, setSecurityQuery] = useState("");
   const [securityResult, setSecurityResult] = useState(null);
@@ -135,14 +143,17 @@ function App() {
   const [analysisOptions, setAnalysisOptions] = useState({
     useRobinhood: false,
     useOpenAi: false,
-    extraTickersText: "COST,LLY,JPM,VTI",
+    extraTickersText: "",
     limit: 5,
     includeOwnedIdeas: false,
   });
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isImportingHoldings, setIsImportingHoldings] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
+  const [symbolResults, setSymbolResults] = useState([]);
   const [authRefreshKey, setAuthRefreshKey] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [firebaseState, setFirebaseState] = useState({
     user: null,
     profile: null,
@@ -156,7 +167,7 @@ function App() {
     plan: null,
     loading: firebaseReady,
     error: null,
-    authDisabled: false,
+    authDisabled: !firebaseReady,
   });
   const [toast, setToast] = useState("");
 
@@ -164,6 +175,11 @@ function App() {
     const path = view === "home" ? "/" : `/${view}`;
     window.history.pushState({}, "", path);
     setAppView(view);
+  }
+
+  function openLogin(mode = "signin") {
+    setAuthStartMode(mode);
+    navigateTo("login");
   }
 
   useEffect(() => {
@@ -217,26 +233,58 @@ function App() {
     [cash, riskStyle, includeOwned, data.buyIdeas, data.holdings],
   );
 
-  async function handleAnalyze() {
-    setIsAnalyzing(true);
-    setToast("Running backend analysis. This can take a bit because it fetches market data.");
+  async function handleImportHoldings(file, brokerHint = "") {
+    const cacheKey = `beacon_import_${file.name}_${file.size}_${file.lastModified}_${brokerHint || "auto"}`;
+    const cached = readAnalysisCache(cacheKey);
+    setIsImportingHoldings(true);
+    setImportProgress({ pct: cached ? 82 : 8, label: cached ? "Loading cached analysis" : "Uploading holdings file" });
+    setToast(`Importing ${file.name}. Beacon will run analysis as soon as the file is parsed.`);
+    const progressSteps = cached
+      ? []
+      : [
+          [18, "Parsing holdings rows"],
+          [38, "Analyzing portfolio positions"],
+          [58, "Ranking portfolio-specific ideas"],
+          [76, "Building research and sentiment context"],
+          [90, "Preparing saved report data"],
+        ];
+    let stepIndex = 0;
+    const progressTimer = window.setInterval(() => {
+      if (stepIndex >= progressSteps.length) return;
+      const [pctValue, label] = progressSteps[stepIndex];
+      setImportProgress({ pct: pctValue, label });
+      stepIndex += 1;
+    }, 1400);
     try {
-      const activeBrokerCredentials = brokerCredentials || readSessionBrokerCredentials();
-      if (!activeBrokerCredentials) {
-        setToast("Connect Robinhood first. Portfolio analysis now uses linked session credentials, not credentials.md.");
-        return;
+      const result = cached || await importHoldingsFile(file, {
+          brokerHint,
+          extraTickersText: analysisOptions.extraTickersText,
+          limit: analysisOptions.limit,
+          includeOwnedIdeas: analysisOptions.includeOwnedIdeas,
+          useOpenAi: analysisOptions.useOpenAi,
+        });
+      setImportProgress({ pct: 96, label: cached ? "Restoring cached results" : "Finalizing analysis" });
+      const mapped = cached?.mapped || mapBackendAnalysis(result);
+      setBackendData(mapped);
+      if (firebaseState.user) {
+        await saveImportedAnalysis(firebaseState.user.uid, mapped, result.importSource || mapped.backendMeta?.importSource);
+        refreshAuth();
       }
-      const result = await analyzePortfolio({
-        ...analysisOptions,
-        useRobinhood: true,
-        brokerCredentials: activeBrokerCredentials,
-      });
-      setBackendData(mapBackendAnalysis(result));
-      setToast(`Backend analysis complete in ${result.elapsedSeconds}s.`);
+      if (!cached) writeAnalysisCache(cacheKey, { ...result, mapped });
+      const source = result.importSource || mapped.backendMeta?.importSource || {};
+      const detected = source.detectedBroker || "brokerage";
+      setImportProgress({ pct: 100, label: "Analysis ready" });
+      setToast(`${cached ? "Loaded cached" : "Uploaded"} ${source.rowCount || mapped.holdings.length} holdings from ${detected}. Analysis is ready.`);
+      setActive("dashboard");
+      return result;
     } catch (error) {
-      setToast(`Backend analysis failed: ${error.message}`);
+      setImportProgress({ pct: 100, label: "Import failed" });
+      setToast(`Holdings import failed: ${error.message}`);
+      throw error;
     } finally {
-      setIsAnalyzing(false);
+      window.clearInterval(progressTimer);
+      window.setTimeout(() => setImportProgress(null), 1600);
+      setIsImportingHoldings(false);
     }
   }
 
@@ -255,41 +303,8 @@ function App() {
     setToast("Investment plan saved to Firestore.");
   }
 
-  async function handleConnectBroker(options) {
-    try {
-      const result = await connectBrokerViaBackend(options);
-      if (firebaseState.user) {
-        await addBrokerConnection(firebaseState.user.uid, result);
-      }
-      if (result.status === "connected" && options.brokerCredentials) {
-        setBrokerCredentials(options.brokerCredentials);
-        sessionStorage.setItem("beacon_robinhood_credentials", JSON.stringify(options.brokerCredentials));
-        setAnalysisOptions((current) => ({ ...current, useRobinhood: true }));
-      }
-      setToast(result.message || `${result.broker || options.broker} broker metadata saved.`);
-    } catch (error) {
-      setToast(`Broker connection failed: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async function handleDeleteBrokerConnection(connection) {
-    if (!firebaseState.user || !connection?.id) {
-      setToast("Sign in before deleting a broker connection.");
-      return;
-    }
-    await deleteBrokerConnection(firebaseState.user.uid, connection.id);
-    if (connection.broker === "robinhood") {
-      setBrokerCredentials(null);
-      sessionStorage.removeItem("beacon_robinhood_credentials");
-      setAnalysisOptions((current) => ({ ...current, useRobinhood: false }));
-    }
-    setToast(`${connection.nickname || connection.broker} connection deleted.`);
-  }
-
   async function handleLogout() {
     await signOutOfFirebase();
-    setBrokerCredentials(null);
     setBackendData(null);
     setFirebaseState((current) => ({
       ...current,
@@ -304,7 +319,6 @@ function App() {
       signals: [],
       plan: null,
     }));
-    sessionStorage.removeItem("beacon_robinhood_credentials");
     navigateTo("login");
     refreshAuth();
   }
@@ -333,7 +347,6 @@ function App() {
     try {
       const result = await analyzeSecurity({
         ticker,
-        brokerCredentials: brokerCredentials || readSessionBrokerCredentials(),
       });
       setSecurityResult(result);
       setToast(`${ticker} analysis loaded.`);
@@ -348,14 +361,36 @@ function App() {
     () => buildNotifications(data, summary, firebaseState, backendData),
     [data, summary, firebaseState, backendData],
   );
-  const searchSuggestions = useMemo(() => buildSearchSuggestions(data), [data]);
+  const searchSuggestions = useMemo(() => buildSearchSuggestions(data, symbolResults), [data, symbolResults]);
+
+  useEffect(() => {
+    const query = (topbarSearchQuery || securityQuery || "").trim();
+    if (query.length < 2) {
+      setSymbolResults([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchSymbols(query)
+        .then((payload) => {
+          if (!cancelled) setSymbolResults(payload.results || []);
+        })
+        .catch(() => {
+          if (!cancelled) setSymbolResults([]);
+        });
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [topbarSearchQuery, securityQuery]);
 
   return (
     <div className="app-shell">
       {appView === "home" && (
         <PublicHome
-          onSignIn={() => navigateTo("login")}
-          onGetStarted={() => navigateTo("login")}
+          onSignIn={() => openLogin("signin")}
+          onGetStarted={() => openLogin("create")}
           onDemo={() => navigateTo("dashboard")}
           onDashboard={() => navigateTo("dashboard")}
           user={firebaseState.user}
@@ -366,6 +401,7 @@ function App() {
       {appView === "login" && (
         <LoginPage
           firebaseState={firebaseState}
+          initialMode={authStartMode}
           refreshAuth={refreshAuth}
           onBack={() => navigateTo("home")}
           onContinue={() => navigateTo("dashboard")}
@@ -373,8 +409,15 @@ function App() {
       )}
       {appView === "dashboard" && (
         <>
-      <Sidebar active={active} setActive={setActive} onHome={() => navigateTo("home")} />
-      <div className="content-shell">
+      <Sidebar
+        active={active}
+        setActive={setActive}
+        onHome={() => navigateTo("home")}
+        theme={theme}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+      />
+      <div className={`content-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         <Topbar
           profile={firebaseState.profile}
           firebaseState={firebaseState}
@@ -395,8 +438,10 @@ function App() {
               data={data}
               summary={summary}
               setActive={setActive}
-              onAnalyze={handleAnalyze}
-              isAnalyzing={isAnalyzing}
+              onImportHoldings={handleImportHoldings}
+              isImporting={isImportingHoldings}
+              importProgress={importProgress}
+              onSavePdf={() => saveAnalysisPdf(data, summary)}
             />
           )}
           {active === "portfolio" && <Portfolio data={data} summary={summary} />}
@@ -427,16 +472,13 @@ function App() {
             />
           )}
           {active === "profile" && (
-            <ProfileConnections profile={firebaseState.profile} connections={firebaseState.brokerConnections} user={firebaseState.user} />
+            <ProfileConnections profile={firebaseState.profile} user={firebaseState.user} latestRun={data.latestRun} backendMeta={data.backendMeta} />
           )}
           {active === "connect" && (
             <Connect
-              onConnect={handleConnectBroker}
-              connections={firebaseState.brokerConnections}
-              user={firebaseState.user}
-              brokerCredentials={brokerCredentials}
-              onDelete={handleDeleteBrokerConnection}
-              exportData={{ userId: firebaseState.user?.uid, connections: firebaseState.brokerConnections }}
+              onImportHoldings={handleImportHoldings}
+              isImporting={isImportingHoldings}
+              importProgress={importProgress}
             />
           )}
         </main>
@@ -464,15 +506,22 @@ function App() {
   );
 }
 
-function Sidebar({ active, setActive, onHome }) {
+function Sidebar({ active, setActive, onHome, theme, collapsed, onToggleCollapse }) {
   return (
-    <aside className="sidebar">
-      <button className="brand brand-button" onClick={onHome} title="Go to Beacon home">
-        <div className="brand-mark"><BeaconIcon size={30} variant="mixed" /></div>
-        <div>
-          <h1>Beacon</h1>
-          <p>Private Wealth</p>
-        </div>
+    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+      <div className="sidebar-header">
+        <button className="dashboard-brand brand-button" onClick={onHome} title="Go to Beacon home" aria-label="Go to Beacon home">
+          <BeaconIcon size={32} variant={theme === "dark" ? "blue" : "mixed"} />
+          <span>Beacon</span>
+        </button>
+      </div>
+      <button
+        className="sidebar-collapse-btn"
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand" : "Collapse"}
+      >
+        <ChevronRight size={16} />
       </button>
       <nav>
         {nav.map((item) => {
@@ -482,6 +531,7 @@ function Sidebar({ active, setActive, onHome }) {
               key={item.id}
               className={`nav-item ${active === item.id ? "active" : ""}`}
               onClick={() => setActive(item.id)}
+              title={collapsed ? item.label : undefined}
             >
               <Icon size={18} />
               <span>{item.label}</span>
@@ -527,10 +577,10 @@ function PublicHome({ onSignIn, onGetStarted, onDemo, onDashboard, user, page, s
       </header>
       <main className="public-main">
         {page === "home" && <HomePanel onGetStarted={onGetStarted} onDemo={onDemo} />}
-        {page === "platform" && <PublicInfoPage title="Platform" subtitle="A private wealth operating system for portfolio decisions." items={[
-          ["Connected holdings", "Link read-only brokerage sessions, normalize holdings, and keep risk views account-specific."],
-          ["Signal engine", "Score holdings and candidates with momentum, volatility, drawdown, quality, sentiment, and concentration context."],
-          ["Action workspace", "Turn research into staged buys, trim rules, tax-aware exits, and exportable review packs."],
+        {page === "platform" && <PublicInfoPage title="Platform" subtitle="Upload-first portfolio analysis that does more than track balances." items={[
+          ["No broker passwords", "Import CSV, XLSX, or PDF holdings exports instead of handing a third-party app your brokerage login."],
+          ["Analysis, not account clutter", "Beacon combines concentration, momentum, drawdown, valuation, sentiment, tax impact, and staged allocation context in one workflow."],
+          ["Reusable review packs", "Save analysis, compare historical runs, and export PDF reports you can review before committing capital."],
         ]} />}
         {page === "solutions" && <PublicInfoPage title="Solutions" subtitle="Built for investors who want disciplined decisions without spreadsheet sprawl." items={[
           ["Concentrated portfolios", "Identify oversized positions and decide whether to hold, trim, or redirect cash into lower-correlation ideas."],
@@ -538,27 +588,10 @@ function PublicHome({ onSignIn, onGetStarted, onDemo, onDashboard, user, page, s
           ["Tax-aware exits", "Compare trim timing, lot priority, donation alternatives, and reinvestment tradeoffs before acting."],
         ]} />}
         {page === "pricing" && <PublicInfoPage title="Pricing" subtitle="Beacon is free while this local build is in development." items={[
-          ["Free", "$0 for the current local dashboard, Firebase auth, broker metadata, and portfolio analytics UI."],
+          ["Free", "$0 for the current local dashboard, Firebase auth, file import, and portfolio analytics UI."],
           ["Bring your own services", "Market data, broker access, Firebase, and optional AI/API keys remain under your own accounts."],
           ["No trade execution", "Beacon is read-only decision support, not a trading platform."],
         ]} />}
-        <section className="public-features">
-          <div>
-            <Sparkles />
-            <h3>Portfolio Signal Engine</h3>
-            <p>Highlights concentration, weak signals, and buy candidates that deserve review.</p>
-          </div>
-          <div>
-            <Shield />
-            <h3>Read-only by design</h3>
-            <p>Broker credentials are used for local validation and are never saved to Firebase.</p>
-          </div>
-          <div>
-            <Brain />
-            <h3>Plain-English context</h3>
-            <p>Transforms factor data, news, and strategy state into concise decision support.</p>
-          </div>
-        </section>
       </main>
     </div>
   );
@@ -569,18 +602,29 @@ function HomePanel({ onGetStarted, onDemo }) {
     <section className="public-hero">
       <div className="public-pill">
         <span />
-        Interactive portfolio intelligence
+        Upload-first portfolio intelligence
       </div>
-      <h1>Turn connected brokerage data into <strong>clear actions.</strong></h1>
+      <h1>Most portfolio apps track balances. <strong>Beacon explains decisions.</strong></h1>
       <p>
-        Beacon aggregates holdings, risk, alpha signals, market sentiment, tax-aware exits, and buy ideas into a disciplined
-        private wealth dashboard, then translates the data into staged actions you can review before committing capital.
+        Upload a holdings export and get concentration risk, signal quality, tax-aware exits, staged allocation ideas, and a
+        PDF report. No broker passwords, no raw file storage, no trade execution.
       </p>
       <div className="public-actions">
         <button className="public-primary large" onClick={onGetStarted}>
           Start Beacon <ChevronRight size={18} />
         </button>
         <button className="public-secondary large" onClick={onDemo}>View Demo Dashboard</button>
+      </div>
+      <div className="comparison-strip">
+        <div>
+          <Label>Trackers</Label>
+          <span>Balances, charts, categories</span>
+        </div>
+        <ChevronRight size={20} />
+        <div>
+          <Label>Beacon</Label>
+          <span>Actions, risk, tax-aware exits, saved reviews</span>
+        </div>
       </div>
       <div className="public-logo-row">
         {["robinhood.com", "fidelity.com", "vanguard.com", "schwab.com", "jpmorgan.com"].map((domain) => (
@@ -610,6 +654,36 @@ function HomePanel({ onGetStarted, onDemo }) {
           </div>
         </div>
       </div>
+      <section className="public-features">
+        <div>
+          <Sparkles />
+          <h3>Beyond portfolio trackers</h3>
+          <p>Most apps show balances. Beacon explains concentration, weak signals, trim candidates, and where new cash could go next.</p>
+        </div>
+        <div>
+          <Shield />
+          <h3>Upload-first privacy</h3>
+          <p>Analyze exported holdings files without sharing broker passwords or storing raw account files.</p>
+        </div>
+        <div>
+          <Brain />
+          <h3>Save the work</h3>
+          <p>Create an account to keep past analyses, compare changes over time, and export PDF review packs.</p>
+        </div>
+      </section>
+      <section className="workflow-band">
+        {[
+          ["1", "Upload", "Drop in a CSV, XLSX, or PDF holdings export from the brokerage you already use."],
+          ["2", "Analyze", "Beacon scores positions, finds concentration, ranks ideas, and builds action context."],
+          ["3", "Review", "Save a PDF or account-backed history before you decide what to buy, hold, or trim."],
+        ].map(([step, title, body]) => (
+          <div key={step}>
+            <span>{step}</span>
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </div>
+        ))}
+      </section>
     </section>
   );
 }
@@ -633,17 +707,17 @@ function PublicInfoPage({ title, subtitle, items }) {
   );
 }
 
-function LoginPage({ firebaseState, refreshAuth, onBack, onContinue }) {
+function LoginPage({ firebaseState, initialMode, refreshAuth, onBack, onContinue }) {
   return (
     <div className="login-shell">
       <button className="public-link login-back" onClick={onBack}>Back to Home</button>
       <div className="login-panel">
         <div>
-          <Label>Beacon Login</Label>
-          <h1>Sign in to continue</h1>
-          <p>Use email, phone, or anonymous testing. After sign-in, continue to your dashboard.</p>
+          <Label>Beacon Account</Label>
+          <h1>Save your analysis history</h1>
+          <p>Create an account to save uploaded analyses, compare historical runs, keep strategy settings, and return to prior PDF-ready review packs.</p>
         </div>
-        <AuthPanel firebaseState={firebaseState} refreshAuth={refreshAuth} onAuthSuccess={onContinue} />
+        <AuthPanel firebaseState={firebaseState} initialMode={initialMode} refreshAuth={refreshAuth} onAuthSuccess={onContinue} />
         <button className="primary-button" onClick={onContinue} disabled={!firebaseState.user}>
           Continue to Dashboard
         </button>
@@ -668,29 +742,75 @@ function Topbar({
 }) {
   const firebaseLabel = firebaseState.error ? "Firebase setup needed" : firebaseState.user ? "Firestore live" : "Backend mode";
   const unread = notifications.filter((item) => item.tone !== "positive").length;
+  const [focused, setFocused] = useState(false);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const matches = normalizedQuery
+    ? suggestions
+        .filter((item) => `${item.ticker} ${item.name}`.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+          const aTicker = a.ticker.toLowerCase();
+          const bTicker = b.ticker.toLowerCase();
+          const aStarts = aTicker.startsWith(normalizedQuery) ? 0 : 1;
+          const bStarts = bTicker.startsWith(normalizedQuery) ? 0 : 1;
+          return aStarts - bStarts || aTicker.localeCompare(bTicker);
+        })
+        .slice(0, 6)
+    : suggestions.slice(0, 6);
+  const prediction = normalizedQuery && matches[0] ? matches[0] : null;
+  const submitSearch = (value = searchQuery) => {
+    const ticker = String(value || "").trim().toUpperCase();
+    if (!ticker) return;
+    onSearchQuery(ticker);
+    onSearch(ticker);
+    setFocused(false);
+  };
   return (
     <header className="topbar">
       <form
         className="search-box autocomplete-field"
         onSubmit={(event) => {
           event.preventDefault();
-          onSearch(searchQuery);
+          submitSearch(prediction?.ticker || searchQuery);
         }}
       >
         <Search size={16} />
         <input
           value={searchQuery}
           onChange={(event) => onSearchQuery(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+          onKeyDown={(event) => {
+            if ((event.key === "Tab" || event.key === "ArrowRight") && prediction) {
+              event.preventDefault();
+              onSearchQuery(prediction.ticker);
+            }
+            if (event.key === "ArrowDown" && matches[0]) {
+              event.preventDefault();
+              onSearchQuery(matches[0].ticker);
+            }
+          }}
           placeholder="Analyze a stock, ETF, or mutual fund"
-          list="topbar-symbol-suggestions"
         />
-        <datalist id="topbar-symbol-suggestions">
-          {suggestions.map((item) => (
-            <option key={`${item.ticker}-${item.name}-topbar`} value={item.ticker}>
-              {item.name}
-            </option>
-          ))}
-        </datalist>
+        <button type="submit" className="search-submit icon-only" aria-label="Search">
+          <Search size={15} />
+        </button>
+        {focused && (
+          <div className="search-popover">
+            {prediction && (
+              <button type="button" className="search-prediction" onMouseDown={() => submitSearch(prediction.ticker)}>
+                <strong>{prediction.ticker}</strong>
+                <span>{prediction.name}</span>
+                <small>Best match</small>
+              </button>
+            )}
+            {matches.filter((item) => item.ticker !== prediction?.ticker).map((item) => (
+              <button type="button" key={`${item.ticker}-${item.name}-topbar`} onMouseDown={() => submitSearch(item.ticker)}>
+                <strong>{item.ticker}</strong>
+                <span>{item.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </form>
       <div className="topbar-actions">
         <StatusPill tone={firebaseState.error ? "warning" : firebaseState.user ? "positive" : "neutral"}>
@@ -719,15 +839,110 @@ function Topbar({
   );
 }
 
+function UploadHoldingsPanel({ compact = false, isImporting, onImport, importSource = null, progress = null }) {
+  const [brokerHint, setBrokerHint] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function submitFile(file) {
+    if (!file) return;
+    const allowed = /\.(csv|xlsx|pdf)$/i.test(file.name);
+    if (!allowed) {
+      setMessage("Upload a CSV, XLSX, or PDF holdings file.");
+      return;
+    }
+    setMessage("");
+    await onImport(file, brokerHint);
+  }
+
+  return (
+    <section className={`card upload-panel ${compact ? "compact" : ""}`}>
+      <div>
+        <SectionHeader title="Upload Holdings" icon={Upload} compact />
+        <p>
+          Upload a CSV, Excel export, or brokerage PDF. Beacon parses the file, discards the raw upload, and runs the
+          portfolio analysis immediately. If columns are unusual, the optional OpenAI parser can infer the holdings layout.
+        </p>
+        <div className="privacy-list">
+          <span>Stored: structured holdings and analysis results</span>
+          <span>Never stored: raw file, account numbers, broker passwords</span>
+        </div>
+        {importSource && (
+          <p className="setup-text">
+            Latest file import: {importSource.filename || "uploaded file"} · {importSource.detectedBroker || "brokerage"} · {importSource.rowCount || 0} rows
+          </p>
+        )}
+      </div>
+      <div className="upload-controls">
+        <label>
+          <span>Broker override</span>
+          <select value={brokerHint} onChange={(event) => setBrokerHint(event.target.value)}>
+            <option value="">Auto-detect</option>
+            <option value="robinhood">Robinhood</option>
+            <option value="fidelity">Fidelity</option>
+            <option value="schwab">Schwab</option>
+            <option value="etrade">E*TRADE</option>
+            <option value="webull">Webull</option>
+            <option value="ibkr">Interactive Brokers</option>
+            <option value="generic">Generic CSV</option>
+          </select>
+        </label>
+        <label
+          className={`upload-dropzone ${dragging ? "dragging" : ""}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            submitFile(event.dataTransfer.files?.[0]);
+          }}
+        >
+          <Upload size={22} />
+          <strong>{isImporting ? "Analyzing upload" : "Choose or drop file"}</strong>
+          <span>CSV, XLSX, or PDF</span>
+          <input
+            type="file"
+            accept=".csv,.xlsx,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={isImporting}
+            onChange={(event) => submitFile(event.target.files?.[0])}
+          />
+        </label>
+        {message && <p className="error-text">{message}</p>}
+        {isImporting && (
+          <div className="upload-progress">
+            <div>
+              <span style={{ width: `${Math.max(5, Math.min(100, progress?.pct || 12))}%` }} />
+            </div>
+            <strong>{progress?.label || "Analyzing upload"}</strong>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({
   data,
   summary,
   setActive,
-  onAnalyze,
-  isAnalyzing,
+  onImportHoldings,
+  isImporting,
+  importProgress,
+  onSavePdf,
 }) {
+  const importSource = data.backendMeta?.importSource;
   return (
     <div className="stack">
+      <UploadHoldingsPanel
+        compact={Boolean(importSource)}
+        isImporting={isImporting}
+        progress={importProgress}
+        onImport={onImportHoldings}
+        importSource={importSource}
+      />
       <section className="hero-grid">
         <div className="hero-card card">
           <div>
@@ -752,19 +967,22 @@ function Dashboard({
             <h3>Advisor Intelligence</h3>
           </div>
           <p>{data.latestRun.plainEnglishSummary}</p>
-          <button className="primary-button" onClick={() => setActive("strategy")}>
-            Review Strategy <ChevronRight size={16} />
-          </button>
+          <div className="button-row">
+            <button className="primary-button" onClick={() => setActive("strategy")}>
+              Review Strategy <ChevronRight size={16} />
+            </button>
+            <button className="secondary-button" onClick={onSavePdf}>
+              <FileText size={16} />
+              Save PDF
+            </button>
+          </div>
         </div>
       </section>
 
       <section>
         <SectionHeader
           title="What To Review Today"
-          action={isAnalyzing ? "Analyzing" : "Run analysis"}
           icon={RefreshCw}
-          onAction={onAnalyze}
-          actionDisabled={isAnalyzing}
         />
         <div className="review-grid">
           {data.actions.slice(0, 4).map((action) => (
@@ -798,7 +1016,11 @@ function Dashboard({
 function Portfolio({ data, summary }) {
   return (
     <div className="stack">
-      <PageTitle title="Portfolio Risk Analysis" subtitle="Concentration, exposure, gain, and action mix across connected accounts." />
+      <PageTitle
+        title="Portfolio Risk Analysis"
+        subtitle="Concentration, exposure, gain, and action mix across connected accounts."
+        exportData={buildReportPayload(data, summary, "portfolio-risk-analysis")}
+      />
       <div className="metric-grid">
         <MetricCard label="Positions" value={summary.positions} icon={WalletCards} />
         <MetricCard label="Concentrated" value={summary.concentratedCount} icon={AlertTriangle} tone="warning" />
@@ -913,7 +1135,7 @@ function Strategy({ cash, setCash, riskStyle, setRiskStyle, includeOwned, setInc
 function Ideas({ data }) {
   return (
     <div className="stack">
-      <PageTitle title="Buy Ideas" subtitle="Ranked candidates from the dynamic universe, factor model, and headline context." />
+      <PageTitle title="Buy Ideas" subtitle="Ranked candidates from the dynamic universe, factor model, and headline context." exportData={buildReportPayload(data, buildSummary(data.holdings, data.latestRun), "buy-ideas")} />
       <div className="ideas-grid">
         {data.buyIdeas.map((idea) => (
           <div className="card idea-card" key={idea.ticker}>
@@ -935,9 +1157,10 @@ function Ideas({ data }) {
 }
 
 function Research({ data }) {
+  const sentiment = buildSentimentSummary(data);
   return (
     <div className="stack">
-      <PageTitle title="Research" subtitle="Alpha factor IC, strategy monitor signals, and sentiment context." />
+      <PageTitle title="Research" subtitle="Alpha factor IC, strategy monitor signals, and sentiment context." exportData={buildReportPayload(data, buildSummary(data.holdings, data.latestRun), "research")} />
       <section className="research-grid">
         <div className="card">
           <SectionHeader title="Factor IC" icon={BarChart3} compact />
@@ -950,13 +1173,12 @@ function Research({ data }) {
         <div className="card wide">
           <SectionHeader title="Market Sentiment" icon={Brain} compact />
           <p className="ai-summary">
-            Current signals indicate cautious optimism. Momentum remains strongest in semiconductors, but concentration and
-            earnings-proximity risk argue for staged deployment instead of adding aggressively into existing winners.
+            {sentiment.summary}
           </p>
           <div className="sentiment-grid">
-            <SentimentTile label="Primary driver" value="Semiconductor breadth" />
-            <SentimentTile label="Volatility outlook" value="Moderate elevation" tone="warning" />
-            <SentimentTile label="Strategy bias" value="Staged buy" tone="positive" />
+            <SentimentTile label="Primary driver" value={sentiment.primaryDriver} tone={sentiment.primaryTone} />
+            <SentimentTile label="Volatility outlook" value={sentiment.volatilityOutlook} tone={sentiment.volatilityTone} />
+            <SentimentTile label="Strategy bias" value={sentiment.strategyBias} tone="positive" />
           </div>
         </div>
       </section>
@@ -967,18 +1189,18 @@ function Research({ data }) {
 function MarketSentiment({ data }) {
   const topIdeas = data.buyIdeas.slice(0, 5);
   const riskSignals = data.signals.filter((signal) => signal.action?.includes("DO NOT ADD") || signal.action?.includes("TRIM"));
+  const sentiment = buildSentimentSummary(data);
   return (
     <div className="stack">
-      <PageTitle title="Market Sentiment" subtitle="Headline context, strategy bias, and risk flags for the current portfolio universe." />
+      <PageTitle title="Market Sentiment" subtitle="Headline context, strategy bias, and risk flags for the current portfolio universe." exportData={buildReportPayload(data, buildSummary(data.holdings, data.latestRun), "market-sentiment")} />
       <section className="research-grid">
         <div className="card wide sentiment-hero">
           <SectionHeader title="Beacon Intelligence Summary" icon={Brain} compact />
           <p>
-            Momentum remains constructive across the strongest candidates, but portfolio concentration means new risk should
-            be staged. The highest-confidence setup is not necessarily the best add if it increases single-sector exposure.
+            {sentiment.summary}
           </p>
           <div className="sentiment-grid">
-            <SentimentTile label="Primary driver" value="Portfolio concentration" tone="warning" />
+            <SentimentTile label="Primary driver" value={sentiment.primaryDriver} tone={sentiment.primaryTone} />
             <SentimentTile label="Best candidate score" value={num(Math.max(...topIdeas.map((idea) => idea.score || 0), 0))} tone="positive" />
             <SentimentTile label="Risk flags" value={String(riskSignals.length)} tone={riskSignals.length ? "warning" : "positive"} />
           </div>
@@ -998,33 +1220,77 @@ function MarketSentiment({ data }) {
 
 function SecuritySearch({ query, setQuery, result, loading, onSearch, suggestions }) {
   const snapshot = result?.snapshot || {};
+  const [focused, setFocused] = useState(false);
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = normalizedQuery
+    ? suggestions
+        .filter((item) => `${item.ticker} ${item.name}`.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+          const aTicker = a.ticker.toLowerCase();
+          const bTicker = b.ticker.toLowerCase();
+          const aStarts = aTicker.startsWith(normalizedQuery) ? 0 : 1;
+          const bStarts = bTicker.startsWith(normalizedQuery) ? 0 : 1;
+          return aStarts - bStarts || aTicker.localeCompare(bTicker);
+        })
+        .slice(0, 8)
+    : suggestions.slice(0, 8);
+  const prediction = normalizedQuery && matches[0] ? matches[0] : null;
+  const submitSearch = (ticker = query) => {
+    const value = String(ticker || "").trim().toUpperCase();
+    if (!value) return;
+    setQuery(value);
+    setFocused(false);
+    onSearch(value);
+  };
   return (
     <div className="stack">
       <PageTitle title="Security Analysis" subtitle="Analyze a stock, ETF, or mutual fund by ticker using the same backend factor engine." />
       <section className="card search-analysis-card">
         <form
-          className="security-search-form"
+          className="security-search-form autocomplete-field"
           onSubmit={(event) => {
             event.preventDefault();
-            onSearch(query);
+            submitSearch(prediction?.ticker || query);
           }}
         >
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value.toUpperCase())}
-            placeholder="AAPL, SPY, VTI, FXAIX..."
-            list="search-page-symbol-suggestions"
-          />
-          <datalist id="search-page-symbol-suggestions">
-            {suggestions.map((item) => (
-              <option key={`${item.ticker}-${item.name}-search`} value={item.ticker}>
-                {item.name}
-              </option>
-            ))}
-          </datalist>
-          <button className="primary-button" disabled={loading}>
+          <div className="security-autocomplete">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value.toUpperCase())}
+              onFocus={() => setFocused(true)}
+              onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+              onKeyDown={(event) => {
+                if ((event.key === "Tab" || event.key === "ArrowRight") && prediction) {
+                  event.preventDefault();
+                  setQuery(prediction.ticker);
+                }
+                if (event.key === "ArrowDown" && matches[0]) {
+                  event.preventDefault();
+                  setQuery(matches[0].ticker);
+                }
+              }}
+              placeholder="AAPL, SPY, VTI, FXAIX..."
+            />
+            {focused && (
+              <div className="search-popover">
+                {prediction && (
+                  <button type="button" className="search-prediction" onMouseDown={() => submitSearch(prediction.ticker)}>
+                    <strong>{prediction.ticker}</strong>
+                    <span>{prediction.name}</span>
+                    <small>Best match</small>
+                  </button>
+                )}
+                {matches.filter((item) => item.ticker !== prediction?.ticker).map((item) => (
+                  <button type="button" key={`${item.ticker}-${item.name}-search`} onMouseDown={() => submitSearch(item.ticker)}>
+                    <strong>{item.ticker}</strong>
+                    <span>{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className="primary-button search-icon-action" disabled={loading} aria-label={loading ? "Analyzing" : "Analyze security"}>
             <Search size={16} />
-            {loading ? "Analyzing" : "Analyze"}
           </button>
         </form>
       </section>
@@ -1086,10 +1352,11 @@ function SecuritySearch({ query, setQuery, result, loading, onSearch, suggestion
   );
 }
 
-function ProfileConnections({ profile, connections, user }) {
+function ProfileConnections({ profile, user, latestRun, backendMeta }) {
+  const importSource = backendMeta?.importSource || latestRun?.importSource || null;
   return (
     <div className="stack">
-      <PageTitle title="Profile & Connections" subtitle="Account identity, saved preferences, and broker connection metadata." />
+      <PageTitle title="Profile & Saved Analysis" subtitle="Account identity, saved preferences, and imported portfolio history." />
       <section className="profile-grid">
         <div className="card">
           <SectionHeader title="Profile" icon={User} compact />
@@ -1101,20 +1368,18 @@ function ProfileConnections({ profile, connections, user }) {
           </div>
         </div>
         <div className="card">
-          <SectionHeader title="Broker Connections" icon={Lock} compact />
+          <SectionHeader title="Import History" icon={Upload} compact />
           <div className="connection-list">
-            {connections.length ? (
-              connections.map((connection) => (
-                <div className="connection-row" key={connection.id}>
+            {importSource ? (
+                <div className="connection-row">
                   <span>
-                    {connection.nickname}
-                    <small>{connection.broker} · {connection.accountCount || 0} accounts</small>
+                    {importSource.filename || "Uploaded holdings"}
+                    <small>{importSource.detectedBroker || "Brokerage"} · {importSource.rowCount || 0} rows · {importSource.parser || "column-map"}</small>
                   </span>
-                  <StatusPill tone={connection.status === "connected" ? "positive" : "warning"}>{connection.status}</StatusPill>
+                  <StatusPill tone="positive">saved</StatusPill>
                 </div>
-              ))
             ) : (
-              <p className="muted">No broker metadata saved yet.</p>
+              <p className="muted">Upload holdings to create saved analysis history when Firebase is configured.</p>
             )}
           </div>
         </div>
@@ -1123,157 +1388,29 @@ function ProfileConnections({ profile, connections, user }) {
   );
 }
 
-function Connect({ onConnect, connections, user, brokerCredentials, onDelete, exportData }) {
-  const [broker, setBroker] = useState("robinhood");
-  const [nickname, setNickname] = useState("Robinhood Brokerage");
-  const [testSavedCredentials, setTestSavedCredentials] = useState(true);
-  const [username, setUsername] = useState(brokerCredentials?.ROBINHOOD_USERNAME || "");
-  const [password, setPassword] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const stepState = buildConnectionSteps({ broker, busy, connections, message });
-
-  async function submitConnection() {
-    if (broker === "robinhood" && testSavedCredentials && (!username.trim() || !password)) {
-      setMessage("Enter your Robinhood username and password before linking.");
-      return;
-    }
-    setBusy(true);
-    setMessage("");
-    try {
-      await onConnect({
-        broker,
-        nickname,
-        testSavedCredentials,
-        brokerCredentials:
-          broker === "robinhood"
-            ? {
-                ROBINHOOD_USERNAME: username,
-                ROBINHOOD_PASSWORD: password,
-                ROBINHOOD_MFA_CODE: mfaCode,
-              }
-            : null,
-      });
-      setMessage("Connection metadata saved.");
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
+function Connect({ onImportHoldings, isImporting, importProgress }) {
   return (
     <div className="connect-page">
       <div>
         <PageTitle
-          title="Secure Broker Connection"
-          subtitle="Store only metadata in Firestore. Credentials should be handled by Cloud Functions and Secret Manager."
-          exportData={exportData}
+          title="Import Holdings"
+          subtitle="Upload exported positions and run Beacon analysis without sharing broker credentials."
         />
         <div className="stepper">
-          {stepState.map((step, index) => (
-            <div className="step" key={step.label}>
-              <div className={step.state}>{step.state === "done" ? <Check size={16} /> : index + 1}</div>
-              <span>{step.label}</span>
+          {[
+            ["Export file", "done"],
+            ["Upload holdings", isImporting ? "current" : "done"],
+            ["Review analysis", ""],
+            ["Save PDF", ""],
+          ].map(([label, state], index) => (
+            <div className="step" key={label}>
+              <div className={state}>{state === "done" ? <Check size={16} /> : index + 1}</div>
+              <span>{label}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="card connect-card">
-        <SectionHeader title="Broker Link" icon={Lock} compact />
-        <p>
-          This creates a read-only broker metadata record. For local Robinhood testing, the API validates the username,
-          password, and MFA code entered here. Passwords are kept only in this browser session and are not stored in
-          Firebase.
-        </p>
-        <div className="broker-form">
-          <label>
-            <span>Broker</span>
-            <select value={broker} onChange={(event) => {
-              setBroker(event.target.value);
-              setNickname(event.target.value === "robinhood" ? "Robinhood Brokerage" : "Fidelity Brokerage");
-            }}>
-              <option value="robinhood">Robinhood</option>
-              <option value="fidelity">Fidelity</option>
-            </select>
-          </label>
-          <label>
-            <span>Nickname</span>
-            <input value={nickname} onChange={(event) => setNickname(event.target.value)} />
-          </label>
-          {broker === "robinhood" && (
-            <>
-              <label>
-                <span>Robinhood username/email</span>
-                <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
-              </label>
-              <label>
-                <span>Robinhood password</span>
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type="password"
-                  autoComplete="current-password"
-                />
-              </label>
-              <label>
-                <span>MFA code</span>
-                <input value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} placeholder="Optional fresh 6-digit code" />
-              </label>
-            </>
-          )}
-          <label className="toggle-row compact">
-            <input
-              type="checkbox"
-              checked={testSavedCredentials}
-              onChange={(event) => setTestSavedCredentials(event.target.checked)}
-              disabled={broker !== "robinhood"}
-            />
-            Validate Robinhood credentials now
-          </label>
-          <button className="primary-button" onClick={submitConnection} disabled={busy || !user}>
-            {busy ? "Linking" : "Link Account"}
-          </button>
-          {!user && <p className="setup-text">Sign in before saving broker metadata.</p>}
-          {message && <p className="setup-text">{message}</p>}
-        </div>
-        <div className="broker-grid">
-          {["robinhood", "fidelity"].map((broker) => (
-            <button className="broker-card" key={broker} onClick={() => {
-              setBroker(broker);
-              setNickname(broker === "robinhood" ? "Robinhood Brokerage" : "Fidelity Brokerage");
-            }}>
-              <BrokerLogo broker={broker} />
-              <div>
-                <strong>{broker}</strong>
-                <span>Read-only holdings and balances</span>
-              </div>
-            </button>
-          ))}
-        </div>
-        <LogoAttribution />
-        <div className="connection-list">
-          {connections.length ? (
-            connections.map((connection) => (
-              <div className="connection-row" key={connection.id}>
-                <span>
-                  {connection.nickname}
-                  {connection.lastError && <small>{connection.lastError}</small>}
-                </span>
-                <div className="row-actions">
-                  <StatusPill tone={connection.status === "connected" ? "positive" : "warning"}>{connection.status}</StatusPill>
-                  <button className="secondary-button compact-button" onClick={() => onDelete(connection)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="muted">No broker metadata saved yet.</p>
-          )}
-        </div>
-      </div>
+      <UploadHoldingsPanel isImporting={isImporting} progress={importProgress} onImport={onImportHoldings} />
     </div>
   );
 }
@@ -1290,13 +1427,21 @@ function NotificationsDrawer({ notifications, onClose }) {
           <button className="icon-button" onClick={onClose} aria-label="Close notifications">×</button>
         </div>
         <div className="notification-list">
-          {notifications.map((item) => (
-            <div className={`notification-card ${item.tone}`} key={item.id}>
-              <StatusPill tone={item.tone}>{item.label}</StatusPill>
-              <strong>{item.title}</strong>
-              <p>{item.body}</p>
+          {notifications.length ? (
+            notifications.map((item) => (
+              <div className={`notification-card ${item.tone}`} key={item.id}>
+                <StatusPill tone={item.tone}>{item.label}</StatusPill>
+                <strong>{item.title}</strong>
+                <p>{item.body}</p>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state compact">
+              <Bell size={24} />
+              <h3>No account alerts</h3>
+              <p>Notifications appear here after you sign in and save uploaded analysis history.</p>
             </div>
-          ))}
+          )}
         </div>
       </aside>
     </div>
@@ -1381,8 +1526,8 @@ function SettingsModal({ profile, user, onClose, onSave }) {
   );
 }
 
-function AuthPanel({ firebaseState, refreshAuth, onAuthSuccess }) {
-  const [mode, setMode] = useState("signin");
+function AuthPanel({ firebaseState, initialMode = "create", refreshAuth, onAuthSuccess }) {
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -1392,6 +1537,10 @@ function AuthPanel({ firebaseState, refreshAuth, onAuthSuccess }) {
   const [busy, setBusy] = useState(false);
 
   async function runAuth(label, action) {
+    if (firebaseState.authDisabled || firebaseState.error?.includes("Firebase is not configured")) {
+      setMessage("Account saving is disabled in this local build. Continue to the dashboard to upload holdings and export PDF reports without Firebase.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
@@ -1416,17 +1565,22 @@ function AuthPanel({ firebaseState, refreshAuth, onAuthSuccess }) {
     <section className="auth-card card">
       <div className="split-heading">
         <div>
-          <Label>Firebase Authentication</Label>
+          <Label>Beacon Account</Label>
           <h3>{signedInLabel}</h3>
           <p>
-            Email, phone, and anonymous test auth are wired to Firebase Auth. Phone sign-in uses the SDK reCAPTCHA flow
-            from Firebase’s web phone-auth guide.
+            Create an account to save uploaded portfolio analyses, re-open historical runs, keep strategy settings, and compare how your holdings change over time.
           </p>
         </div>
         <StatusPill tone={firebaseState.user ? "positive" : "warning"}>
-          {firebaseState.user ? "Signed in" : "Auth required"}
+          {firebaseState.user ? "Signed in" : firebaseState.authDisabled ? "Setup needed" : "Auth required"}
         </StatusPill>
       </div>
+      {firebaseState.authDisabled && (
+        <div className="setup-callout">
+          <strong>Local mode</strong>
+          <p>Uploads and PDF exports work without an account. Add Firebase values in `.env.local` only when you want saved analysis history and cross-session persistence.</p>
+        </div>
+      )}
       <div className="auth-tabs">
         {[
           ["signin", "Sign In"],
@@ -1456,7 +1610,7 @@ function AuthPanel({ firebaseState, refreshAuth, onAuthSuccess }) {
         <div className="auth-mode-panel">
           <div>
             <h4>Create account</h4>
-            <p>Create a new Beacon profile, then continue to your dashboard.</p>
+            <p>Create a Beacon profile to save imported holdings, historical analysis runs, strategy defaults, and PDF-ready reports.</p>
           </div>
           <input className="text-input" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Display name" />
           <input className="text-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" />
@@ -1637,17 +1791,18 @@ function GainBars({ holdings }) {
 
 function TooltipWrap({ tip, children }) {
   return (
-    <span className="tooltip-wrap" title={tip}>
+    <span className="tooltip-wrap" tabIndex={0}>
       {children}
+      <span className="tooltip-bubble" role="tooltip">{tip}</span>
     </span>
   );
 }
 
 function InfoDot({ tip }) {
   return (
-    <span className="info-dot" title={tip} aria-label={tip}>
-      ?
-    </span>
+    <TooltipWrap tip={tip}>
+      <span className="info-dot" aria-label={tip}>?</span>
+    </TooltipWrap>
   );
 }
 
@@ -1760,7 +1915,7 @@ function ScoreRing({ score }) {
 function MetricCard({ label, value, icon: Icon, tone = "neutral" }) {
   const tip = PANEL_TOOLTIPS[label] || `Beacon metric: ${label}`;
   return (
-    <div className={`card metric-card ${tone}`} title={tip}>
+    <div className={`card metric-card ${tone}`}>
       <Icon size={20} />
       <Label>{withTip(label, tip)}</Label>
       <strong>{value}</strong>
@@ -1771,7 +1926,7 @@ function MetricCard({ label, value, icon: Icon, tone = "neutral" }) {
 function SectionHeader({ title, action, icon: Icon, compact = false, onAction, actionDisabled = false }) {
   const tip = PANEL_TOOLTIPS[title] || "This panel summarizes the latest account-specific Beacon analysis.";
   return (
-    <div className={`section-header ${compact ? "compact" : ""}`} title={tip}>
+    <div className={`section-header ${compact ? "compact" : ""}`}>
       <div>
         {Icon && <Icon size={20} />}
         <h2>{title}</h2>
@@ -1793,10 +1948,12 @@ function PageTitle({ title, subtitle, exportData = null }) {
         <h1>{title}</h1>
         <p>{subtitle}</p>
       </div>
-      <button className="secondary-button" onClick={() => exportJson(slugify(title), exportData || { title, subtitle, exportedAt: new Date().toISOString() })}>
-        <Download size={16} />
-        Export
-      </button>
+      {exportData && (
+        <button className="secondary-button" onClick={() => exportJson(slugify(title), exportData)}>
+          <Download size={16} />
+          Export Report
+        </button>
+      )}
     </header>
   );
 }
@@ -1816,11 +1973,6 @@ function SentimentTile({ label, value, tone = "neutral" }) {
       <strong>{value}</strong>
     </div>
   );
-}
-
-function BrokerLogo({ broker }) {
-  const domain = broker === "robinhood" ? "robinhood.com" : broker === "fidelity" ? "fidelity.com" : `${broker}.com`;
-  return <CompanyLogo domain={domain} name={broker} />;
 }
 
 function CompanyLogo({ domain, name }) {
@@ -1855,7 +2007,7 @@ function PriceTrendChart({ rows }) {
 
 function PortfolioTrendChart({ holdings, summary }) {
   const points = buildPortfolioTrend(holdings, summary.totalValue);
-  return <LineSeriesChart points={points} valueLabel={(value) => money(value)} emptyText="Run analysis after linking an account to refresh portfolio trend." />;
+  return <LineSeriesChart points={points} valueLabel={(value) => money(value)} emptyText="Upload holdings to refresh the portfolio trend." />;
 }
 
 function LineSeriesChart({ points, valueLabel, emptyText }) {
@@ -1872,9 +2024,9 @@ function LineSeriesChart({ points, valueLabel, emptyText }) {
       </div>
     );
   }
-  const width = 720;
-  const height = 230;
-  const padding = 24;
+  const width = 760;
+  const height = 280;
+  const padding = 30;
   const values = cleanPoints.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -1889,31 +2041,48 @@ function LineSeriesChart({ points, valueLabel, emptyText }) {
   const start = cleanPoints[0].value;
   const latest = cleanPoints.at(-1).value;
   const change = start ? latest / start - 1 : 0;
+  const direction = change >= 0 ? "positive" : "danger";
 
   return (
     <div className="line-chart-card">
-      <div className="chart-controls">
-        <div className="segmented-control">
-          {["1M", "3M", "6M", "1Y"].map((item) => (
-            <button key={item} className={range === item ? "selected" : ""} onClick={() => setRange(item)}>
-              {item}
-            </button>
-          ))}
+      <div className="chart-toolbar">
+        <div className="chart-meta">
+          <div>
+            <Label>Latest</Label>
+            <strong>{valueLabel(latest)}</strong>
+          </div>
+          <span className={direction}>{pct(change)}</span>
         </div>
-        <div className="segmented-control">
-          {["line", "candles"].map((item) => (
-            <button key={item} className={chartType === item ? "selected" : ""} onClick={() => setChartType(item)}>
-              {item === "line" ? "Line" : "Candles"}
-            </button>
-          ))}
+        <div className="chart-controls">
+          <div className="segmented-control">
+            {["1M", "3M", "6M", "1Y"].map((item) => (
+              <button key={item} className={range === item ? "selected" : ""} onClick={() => setRange(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="segmented-control">
+            {["line", "candles"].map((item) => (
+              <button key={item} className={chartType === item ? "selected" : ""} onClick={() => setChartType(item)}>
+                {item === "line" ? "Line" : "Candles"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      <div className="chart-meta">
+      <div className="chart-stat-grid">
         <div>
-          <Label>Latest</Label>
-          <strong>{valueLabel(latest)}</strong>
+          <Label>Range low</Label>
+          <strong>{valueLabel(min)}</strong>
         </div>
-        <span className={change >= 0 ? "positive" : "danger"}>{pct(change)}</span>
+        <div>
+          <Label>Range high</Label>
+          <strong>{valueLabel(max)}</strong>
+        </div>
+        <div>
+          <Label>Start</Label>
+          <strong>{valueLabel(start)}</strong>
+        </div>
       </div>
       <svg
         className="line-chart"
@@ -2015,9 +2184,15 @@ function buildSummary(holdings, latestRun) {
   };
 }
 
-function buildSearchSuggestions(data) {
-  const names = new Map(COMMON_SYMBOLS.map((item) => [item.ticker, item.name]));
+function buildSearchSuggestions(data, remoteResults = []) {
+  const names = new Map();
   const tickers = new Set();
+  for (const item of remoteResults || []) {
+    if (item.ticker) {
+      tickers.add(item.ticker.toUpperCase());
+      names.set(item.ticker.toUpperCase(), item.name || item.ticker);
+    }
+  }
   for (const row of [...(data.holdings || []), ...(data.buyIdeas || []), ...(data.signals || [])]) {
     if (row.ticker) {
       tickers.add(row.ticker.toUpperCase());
@@ -2025,23 +2200,16 @@ function buildSearchSuggestions(data) {
       if (row.sector && !names.has(row.ticker.toUpperCase())) names.set(row.ticker.toUpperCase(), row.sector);
     }
   }
-  for (const item of COMMON_SYMBOLS) tickers.add(item.ticker);
+  if (!tickers.size) {
+    for (const item of COMMON_SYMBOLS) {
+      tickers.add(item.ticker);
+      names.set(item.ticker, item.name);
+    }
+  }
   return [...tickers]
     .sort((a, b) => a.localeCompare(b))
     .map((ticker) => ({ ticker, name: names.get(ticker) || ticker }))
     .slice(0, 80);
-}
-
-function buildConnectionSteps({ broker, busy, connections, message }) {
-  const hasConnection = connections.some((connection) => connection.broker === broker);
-  const connected = connections.some((connection) => connection.broker === broker && connection.status === "connected");
-  const hasError = message && !message.includes("saved");
-  return [
-    { label: "Choose Broker", state: broker ? "done" : "current" },
-    { label: "Validate Session", state: connected ? "done" : busy ? "current" : hasError ? "error" : "current" },
-    { label: "Save Metadata", state: hasConnection ? "done" : connected ? "current" : "" },
-    { label: "Sync Holdings", state: connected ? "done" : hasConnection ? "current" : "" },
-  ];
 }
 
 function sliceChartRange(points, range) {
@@ -2075,6 +2243,69 @@ function buildPortfolioTrend(holdings, totalValue) {
     });
   }
   return points;
+}
+
+function buildSentimentSummary(data) {
+  const holdings = data.holdings || [];
+  const ideas = data.buyIdeas || [];
+  const riskSignals = (data.signals || []).filter((signal) => signal.action?.includes("TRIM") || signal.action?.includes("DO NOT ADD"));
+  const topHolding = [...holdings].sort((a, b) => (b.portfolioWeight || 0) - (a.portfolioWeight || 0))[0];
+  const topIdea = [...ideas].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+  const masterSummary = data.master?.plain_english_summary;
+  const portfolioAdvice = data.master?.portfolio_advice?.[0]?.action;
+  const primaryDriver = topHolding?.portfolioWeight >= 0.2
+    ? `${topHolding.ticker} concentration`
+    : topIdea
+      ? `${topIdea.ticker} candidate quality`
+      : "Uploaded portfolio mix";
+  const volatilityCount = holdings.filter((holding) => (holding.action || "").includes("REVIEW") || (holding.unrealizedGain || 0) < -0.1).length;
+  return {
+    summary:
+      masterSummary ||
+      portfolioAdvice ||
+      `Beacon is reading the latest uploaded holdings. ${primaryDriver} is the main driver, with ${riskSignals.length} risk alerts and ${ideas.length} ranked candidates available for staged review.`,
+    primaryDriver,
+    primaryTone: topHolding?.portfolioWeight >= 0.2 ? "warning" : "positive",
+    volatilityOutlook: volatilityCount ? `${volatilityCount} positions need review` : "No major stress flags",
+    volatilityTone: volatilityCount ? "warning" : "positive",
+    strategyBias: riskSignals.length ? "Risk-first staged review" : "Staged candidate review",
+  };
+}
+
+function buildReportPayload(data, summary, reportType = "beacon-analysis") {
+  return {
+    reportType,
+    generatedAt: new Date().toISOString(),
+    importSource: data.backendMeta?.importSource || data.latestRun?.importSource || null,
+    backendMeta: data.backendMeta || {},
+    summary,
+    latestRun: data.latestRun,
+    holdings: data.holdings || [],
+    actions: data.actions || [],
+    buyIdeas: data.buyIdeas || [],
+    factorIc: data.factorIc || [],
+    signals: data.signals || [],
+    master: data.master || {},
+    rawBackend: data.rawBackend || null,
+  };
+}
+
+function readAnalysisCache(key) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || "null");
+    if (!cached || Date.now() - cached.savedAt > 1000 * 60 * 60 * 6) return null;
+    return cached.payload;
+  } catch {
+    return null;
+  }
+}
+
+function writeAnalysisCache(key, payload) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), payload }));
+  } catch {
+    // Local cache is best-effort; analysis still works without it.
+  }
 }
 
 function buildExitStrategy(holdings, allocations, cash, riskStyle) {
@@ -2127,6 +2358,149 @@ function exportJson(filename, payload) {
   URL.revokeObjectURL(url);
 }
 
+function saveAnalysisPdf(data, summary) {
+  const imported = data.backendMeta?.importSource;
+  const sortedHoldings = (data.holdings || []).slice().sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
+  const rows = (data.holdings || [])
+    .slice()
+    .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0))
+    .map(
+      (holding) => `
+        <tr>
+          <td>${escapeHtml(holding.ticker)}</td>
+          <td>${money(holding.marketValue)}</td>
+          <td>${pct(holding.portfolioWeight)}</td>
+          <td>${pct(holding.unrealizedGain)}</td>
+          <td>${escapeHtml(holding.action || "HOLD")}</td>
+        </tr>
+      `,
+    )
+    .join("");
+  const actions = (data.actions || [])
+    .slice(0, 8)
+    .map((action) => `<li><strong>${escapeHtml(action.ticker)}</strong> ${escapeHtml(action.action || action.status || "")} <span>${num(action.score)}</span></li>`)
+    .join("");
+  const ideas = (data.buyIdeas || [])
+    .slice(0, 6)
+    .map((idea) => `<li><strong>${escapeHtml(idea.ticker)}</strong> ${escapeHtml(idea.modelDecision || "")}<br><small>${escapeHtml((idea.reasons || []).slice(0, 2).join(" "))}</small></li>`)
+    .join("");
+  const factors = (data.factorIc || [])
+    .slice(0, 8)
+    .map((factor) => `<li><strong>${escapeHtml(factor.factorName)}</strong> IC ${num(factor.icValue)} · ${escapeHtml(factor.status || "Active")}</li>`)
+    .join("");
+  const signals = (data.signals || [])
+    .slice(0, 8)
+    .map((signal) => `<li><strong>${escapeHtml(signal.ticker)}</strong> ${escapeHtml(signal.action || signal.strategy || "")} <span>${num(signal.score)}</span></li>`)
+    .join("");
+  const concentrationRows = sortedHoldings
+    .slice(0, 5)
+    .map((holding) => `<tr><td>${escapeHtml(holding.ticker)}</td><td>${pct(holding.portfolioWeight)}</td><td>${money(holding.marketValue)}</td><td>${escapeHtml(holding.sector || "Unknown")}</td></tr>`)
+    .join("");
+  const importPreview = (imported?.preview || [])
+    .slice(0, 8)
+    .map((row) => `<tr><td>${escapeHtml(row.ticker)}</td><td>${num(row.shares)}</td><td>${money(row.avg_cost)}</td><td>${money(row.market_value)}</td></tr>`)
+    .join("");
+  const report = `
+    <!doctype html>
+    <html>
+      <head>
+        <title>Beacon Analysis</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #111827; margin: 32px; }
+          h1 { margin-bottom: 4px; }
+          h2 { margin-top: 28px; }
+          h3 { margin: 18px 0 8px; }
+          p, li { line-height: 1.5; }
+          .meta { color: #4b5563; }
+          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 22px 0; }
+          .two { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; align-items: start; }
+          .tile { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
+          .tile span { display: block; color: #6b7280; font-size: 11px; text-transform: uppercase; }
+          .tile strong { display: block; margin-top: 6px; font-size: 18px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { text-align: left; border-bottom: 1px solid #e5e7eb; padding: 8px; font-size: 13px; }
+          th { color: #4b5563; text-transform: uppercase; font-size: 11px; }
+          li { margin-bottom: 8px; }
+          small { color: #4b5563; }
+          .page-break { break-before: page; }
+          @media print { button { display: none; } body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <button onclick="window.print()">Save as PDF</button>
+        <h1>Beacon Portfolio Analysis</h1>
+        <p class="meta">Generated ${new Date().toLocaleString()}${imported ? ` from ${escapeHtml(imported.filename || "uploaded holdings")}` : ""}</p>
+        <p>${escapeHtml(data.latestRun?.plainEnglishSummary || "Review the holdings, action cards, and buy ideas before making any portfolio decision.")}</p>
+        <div class="grid">
+          <div class="tile"><span>Total value</span><strong>${money(summary.totalValue)}</strong></div>
+          <div class="tile"><span>Positions</span><strong>${summary.positions}</strong></div>
+          <div class="tile"><span>Top concentration</span><strong>${escapeHtml(summary.topConcentration.ticker)} ${pct(summary.topConcentration.weight)}</strong></div>
+          <div class="tile"><span>Today</span><strong>${money(summary.todayChange)} ${pct(summary.todayChangePct)}</strong></div>
+        </div>
+        ${imported ? `
+          <h2>Import Summary</h2>
+          <div class="grid">
+            <div class="tile"><span>Source file</span><strong>${escapeHtml(imported.filename || "Uploaded holdings")}</strong></div>
+            <div class="tile"><span>Detected format</span><strong>${escapeHtml(imported.detectedBroker || "Brokerage")}</strong></div>
+            <div class="tile"><span>Imported rows</span><strong>${imported.rowCount || 0}</strong></div>
+            <div class="tile"><span>Stored raw file</span><strong>No</strong></div>
+          </div>
+          ${importPreview ? `
+            <h3>Parsed Holdings Preview</h3>
+            <table>
+              <thead><tr><th>Ticker</th><th>Shares</th><th>Average cost</th><th>Market value</th></tr></thead>
+              <tbody>${importPreview}</tbody>
+            </table>
+          ` : ""}
+        ` : ""}
+        <h2>Action Review</h2>
+        <ul>${actions || "<li>No action rows were returned for this analysis.</li>"}</ul>
+        <h2>Concentration Snapshot</h2>
+        <table>
+          <thead><tr><th>Ticker</th><th>Weight</th><th>Value</th><th>Sector</th></tr></thead>
+          <tbody>${concentrationRows}</tbody>
+        </table>
+        <h2>Holdings</h2>
+        <table>
+          <thead><tr><th>Ticker</th><th>Value</th><th>Weight</th><th>Gain</th><th>Action</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="page-break"></div>
+        <div class="two">
+          <section>
+            <h2>Top Buy Ideas</h2>
+            <ul>${ideas || "<li>No buy ideas were returned for this analysis.</li>"}</ul>
+          </section>
+          <section>
+            <h2>Strategy Signals</h2>
+            <ul>${signals || "<li>No strategy signals were returned for this analysis.</li>"}</ul>
+          </section>
+        </div>
+        <h2>Factor Snapshot</h2>
+        <ul>${factors || "<li>No factor IC rows were returned for this analysis.</li>"}</ul>
+        <h2>Notes For Review</h2>
+        <p>Review oversized positions before adding new capital. Compare candidate ideas against current concentration, tax lots, account type, and available cash. Save this report with the uploaded file date so future runs can be compared against the same baseline.</p>
+        <p class="meta">Beacon is read-only decision support, not financial or tax advice.</p>
+      </body>
+    </html>
+  `;
+  const reportWindow = window.open("", "_blank", "width=980,height=720");
+  if (!reportWindow) return;
+  reportWindow.document.write(report);
+  reportWindow.document.close();
+  reportWindow.focus();
+  reportWindow.print();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function slugify(value) {
   return String(value || "beacon-export").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -2134,13 +2508,7 @@ function slugify(value) {
 function buildNotifications(data, summary, firebaseState, backendData) {
   const notifications = [];
   if (!firebaseState.user) {
-    notifications.push({
-      id: "auth",
-      label: "Auth",
-      tone: "warning",
-      title: "Sign in to save data",
-      body: "Portfolio analysis still works locally, but broker metadata and settings require Firebase Auth.",
-    });
+    return notifications;
   }
   if (firebaseState.error) {
     notifications.push({
@@ -2151,23 +2519,23 @@ function buildNotifications(data, summary, firebaseState, backendData) {
       body: firebaseState.error,
     });
   }
-  const connections = firebaseState.brokerConnections || [];
-  if (firebaseState.user && !connections.length) {
+  const importSource = backendData?.backendMeta?.importSource || data.backendMeta?.importSource || firebaseState.latestRun?.importSource;
+  if (!importSource && !(firebaseState.holdings || []).length) {
     notifications.push({
-      id: `broker-none-${firebaseState.user.uid}`,
-      label: "Connect",
+      id: `upload-${firebaseState.user.uid}`,
+      label: "Upload",
       tone: "warning",
-      title: "No broker linked",
-      body: "Connect a read-only brokerage session before running live portfolio analysis.",
+      title: "No saved upload yet",
+      body: "Upload a holdings export to save analysis history and unlock account-specific review alerts.",
     });
   }
-  for (const connection of connections.filter((item) => item.status !== "connected")) {
+  if (importSource) {
     notifications.push({
-      id: `broker-${connection.id}`,
-      label: "Broker",
-      tone: "warning",
-      title: `${connection.nickname || connection.broker} needs attention`,
-      body: connection.lastError || "The account metadata exists, but the session is not fully validated.",
+      id: "saved-analysis",
+      label: "Saved",
+      tone: "positive",
+      title: "Latest upload is ready",
+      body: `${importSource.rowCount || data.holdings.length} holdings from ${importSource.filename || "the uploaded file"} are available for review and PDF export.`,
     });
   }
   if (summary.topConcentration.weight >= 0.2) {
@@ -2198,19 +2566,13 @@ function buildNotifications(data, summary, firebaseState, backendData) {
       body: `Last run finished in ${backendData.backendMeta.elapsedSeconds}s using ${(backendData.backendMeta.watchlist || []).length} candidate tickers.`,
     });
   }
-  if (!notifications.length) {
-    notifications.push({
-      id: "clear",
-      label: "Status",
-      tone: "positive",
-      title: "No urgent alerts",
-      body: "Authentication, portfolio risk, and analysis state look normal.",
-    });
-  }
   return notifications;
 }
 
 function firebaseErrorMessage(error) {
+  if (error.message?.includes("Firebase is not configured")) {
+    return "Account saving is disabled in local mode. Add Firebase values in .env.local when you want saved history.";
+  }
   if (error.code === "auth/configuration-not-found") {
     return "Firebase Auth is not enabled for this project. In Firebase Console, open Authentication, click Get started, enable Anonymous sign-in, then refresh this page.";
   }
@@ -2218,16 +2580,6 @@ function firebaseErrorMessage(error) {
     return "Firestore rejected the request. Check Firestore rules for users/{userId} access.";
   }
   return error.message || "Firebase is not available.";
-}
-
-function readSessionBrokerCredentials() {
-  try {
-    const saved = sessionStorage.getItem("beacon_robinhood_credentials");
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    sessionStorage.removeItem("beacon_robinhood_credentials");
-    return null;
-  }
 }
 
 function readAppRoute() {
